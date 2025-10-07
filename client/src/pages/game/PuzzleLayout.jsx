@@ -6,12 +6,20 @@ import { useEffect } from "react";
 function Shell() {
   const { timeLeft, timeLeftMs, step, goToStep, players, endsAt } = useGame();
   const nav = useNavigate();
+  const { roomId } = useParams();
 
   // Ne redirige vers le lobby que si le timer existe ET est terminé
   useEffect(() => {
     if (endsAt == null) return;
     if (timeLeftMs === 0) nav("/lobby", { replace: true });
   }, [endsAt, timeLeftMs, nav]);
+
+  // Si on arrive directement par l’URL (/enigme/:num), on aligne le contexte
+  useEffect(() => {
+    const m = window.location.pathname.match(/\/enigme\/(\d+)/);
+    const routeNum = m ? Number(m[1]) : 1;
+    if (routeNum !== step) goToStep(routeNum);
+  }, [step, goToStep]);
 
   return (
     <div className="game full-bleed">
@@ -31,8 +39,11 @@ function Shell() {
             <button
               key={n}
               className={`step ${step === n ? "active" : ""} ${n < step ? "done" : ""}`}
-              onClick={() => goToStep(n)}
               type="button"
+              onClick={() => {
+                goToStep(n);
+                nav(`/partie/${roomId}/enigme/${n}`);
+              }}
             >
               Énigme {n}
             </button>

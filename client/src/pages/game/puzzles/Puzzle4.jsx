@@ -1,7 +1,17 @@
-import { useNavigate } from "react-router-dom";
-export default function Puzzle4(){
+import { useNavigate, useParams } from "react-router-dom";
+import { useGame } from "../../../context/GameContext.jsx";
+
+export default function Puzzle4() {
   const nav = useNavigate();
-  function finish(){ nav("/lobby", { replace:true }); }
+  const { roomId } = useParams();
+  const { goToStep } = useGame();
+
+  function finish() {
+    // (optionnel) figer l'étape au final
+    goToStep(4);
+    nav("/lobby", { replace: true });
+  }
+
   return (
     <section className="puzzle">
       <h2>Énigme 4 — Finale</h2>
