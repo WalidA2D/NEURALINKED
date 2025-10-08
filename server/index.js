@@ -4,6 +4,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import authRoutes from './src/routes/authRoutes.js';
+// room route
+import roomRoutes from "./src/routes/roomRoutes.js";
 import { query } from './src/config/database.js';
 import { supabase } from './src/config/supabase.js';
 
@@ -72,6 +74,10 @@ app.get('/api/users', async (req, res) => {
     if (pseudo) q = q.eq('pseudo', pseudo);
     if (email) q = q.eq('email', email);
 
+
+// Routes des parties
+app.use("/api/rooms", roomRoutes);
+
     const { data, error } = await q.order('id', { ascending: true });
     if (error) throw error;
     res.json({ success: true, data });
@@ -84,6 +90,7 @@ app.get('/api/users', async (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route non trouvée' });
 });
+
 
 app.listen(PORT, () => {
   console.log(`API on http://localhost:${PORT}`);

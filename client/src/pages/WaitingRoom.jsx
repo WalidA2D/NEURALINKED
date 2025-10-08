@@ -1,47 +1,90 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
-import { RoomProvider, useRoom } from "../context/RoomContext.jsx";
+import { useAuth } from "../context/AuthContext.jsx";
+import { roomService } from "../services/roomService.js";
 
 function WaitingShell() {
   const nav = useNavigate();
   const { roomId } = useParams();
   const [search] = useSearchParams();
+  const { user, token } = useAuth();
 
-  // Valeurs par défaut pour éviter les erreurs au render (players.length, etc.)
-  const {
-    socket,
-    connected = false,
-    code = "",
-    players = [],
-    hostId,
-    startGame,
-    leaveRoom
-  } = useRoom();
+  const [roomData, setRoomData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [starting, setStarting] = useState(false);
 
-  const me = "me"; // TODO: remplace par ton vrai userId
-  // isHost si je suis l'hôte OU si query ?host=1
-  const isHost = hostId === me || search.get("host") === "1";
+  const isHost = search.get("host") === "1";
+  const code = roomId;
 
-  // 2 à 5 joueurs requis
-  const canStart = players.length >= 1 && players.length <= 5;
-
+  // Charger les données de la partie
   useEffect(() => {
-    // écoute l'évènement "début de partie"
+    async function loadRoom() {
+      try {
+        const data = await roomService.getRoom(code, token);
+        setRoomData(data);
+
+        // 🔥 REDIRECTION AUTOMATIQUE si la partie a commencé
+        if (data.status === 'playing' || data.status === 'started' || data.status === 'in_progress') {
+          console.log("✅ Partie démarrée, redirection...");
+          const roomIdToUse = data.roomId || data.id || code;
+          nav(`/partie/${roomIdToUse}/enigme/1`, { replace: true });
+          return;
+        }
+
+      } catch (err) {
+        setError(err.message || "Erreur lors du chargement de la partie");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadRoom();
+
+    // Polling pour les mises à jour - intervalle plus court pour une meilleure réactivité
+    const interval = setInterval(loadRoom, 2000);
+    return () => clearInterval(interval);
+  }, [code, token, nav]);
+
+  // Écouter le démarrage de partie (pour les autres événements)
+  useEffect(() => {
     const onStart = (ev) => {
-      const id = ev.detail?.roomId || roomId;
+      const id = ev.detail?.roomId || roomData?.roomId || code;
+      console.log("🎯 Événement ROOM_START reçu, redirection...");
       nav(`/partie/${id}/enigme/1`, { replace: true });
     };
-    window.addEventListener("ROOM_START", onStart);
-    window.addEventListener("LOCAL_ROOM_START", onStart);
-    return () => {
-      window.removeEventListener("ROOM_START", onStart);
-      window.removeEventListener("LOCAL_ROOM_START", onStart);
-    };
-  }, [nav, roomId]);
 
-  function handleStart() {
-    if (!canStart) return;
-    startGame?.(); // notifiera tout le monde; en local ça déclenche l’event
+    window.addEventListener("ROOM_START", onStart);
+    return () => window.removeEventListener("ROOM_START", onStart);
+  }, [nav, roomData, code]);
+
+  async function handleStart() {
+    if (!roomData || starting) return;
+
+    setStarting(true);
+    try {
+      const result = await roomService.startRoom(roomData.roomId || roomData.id, token);
+      console.log("🚀 Partie démarrée:", result);
+
+      // Redirection immédiate pour l'hôte
+      const roomIdToUse = roomData.roomId || roomData.id || code;
+      nav(`/partie/${roomIdToUse}/enigme/1`, { replace: true });
+
+    } catch (err) {
+      setError(err.message || "Erreur lors du démarrage de la partie");
+      setStarting(false);
+    }
+  }
+
+  async function handleLeave() {
+    if (roomData) {
+      try {
+        await roomService.leaveRoom(roomData.roomId || roomData.id, token);
+      } catch (err) {
+        console.error("Erreur en quittant la partie:", err);
+      }
+    }
+    nav("/lobby", { replace: true });
   }
 
   function handleCopy() {
@@ -50,57 +93,98 @@ function WaitingShell() {
     }
   }
 
-  function handleLeave() {
-    leaveRoom?.();
-    nav("/lobby", { replace: true });
+  if (loading) {
+    return (
+        <div className="auth full-bleed">
+          <main className="auth__panel">
+            <div className="card">Chargement de la partie...</div>
+          </main>
+        </div>
+    );
   }
 
-  return (
-    <div className="auth full-bleed">
-      <main className="auth__panel">
-        <header className="auth__header">
-          <h1 className="auth__title">
-            <span className="brand">NEURALINKED</span>
-            <span className="sep"> – </span>
-            <span className="subtitle">Salle d’attente</span>
-          </h1>
-          <p className="auth__tagline">Partage le code pour inviter des joueurs (2 à 5 requis).</p>
-        </header>
-
-        <section className="card" style={{ display: "grid", gap: 12 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-            <div className="pill">
-              Code : <strong style={{ marginLeft: 6 }}>{code}</strong>
-            </div>
-            <button className="btn" type="button" onClick={handleCopy}>Copier le code</button>
-            <div className="pill">Joueurs : {players.length}</div>
-            <div className="pill">{connected ? "Socket 🟢" : "Socket 🔴"}</div>
-          </div>
-
-          <ul style={{ margin: 0, paddingLeft: 18 }}>
-            {players.map((p) => (
-              <li key={p.id || p.name}>
-                {p.name}
-                {p.id === me ? " (moi)" : ""}
-                {hostId === p.id ? " ⭐" : ""}
-              </li>
-            ))}
-          </ul>
-
-          <div style={{ display: "flex", gap: 12 }}>
-            <button className="btn btn--ghost" type="button" onClick={handleLeave}>Quitter</button>
-            {isHost ? (
-              <button className="btn" type="button" onClick={handleStart} disabled={!canStart}>
-                Lancer la partie {canStart ? "" : "(2–5 joueurs)"}
+  if (error || !roomData) {
+    return (
+        <div className="auth full-bleed">
+          <main className="auth__panel">
+            <div className="card auth__error">
+              {error || "Partie non trouvée"}
+              <button className="btn" onClick={() => nav("/lobby")}>
+                Retour au lobby
               </button>
-            ) : (
-              <div className="pill">En attente de l’hôte…</div>
-            )}
-          </div>
-        </section>
-      </main>
-      <aside className="auth__art" aria-hidden="true" />
-    </div>
+            </div>
+          </main>
+        </div>
+    );
+  }
+
+  const players = roomData.players || [];
+  const canStart = isHost && players.length >= 2 && players.length <= 5;
+  const isGameStarted = roomData.status !== 'waiting';
+
+  return (
+      <div className="auth full-bleed">
+        <main className="auth__panel">
+          <header className="auth__header">
+            <h1 className="auth__title">
+              <span className="brand">NEURALINKED</span>
+              <span className="sep"> – </span>
+              <span className="subtitle">Salle d'attente</span>
+            </h1>
+            <p className="auth__tagline">Partage le code pour inviter des joueurs (2 à 5 requis).</p>
+          </header>
+
+          <section className="card" style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <div className="pill">
+                Code : <strong style={{ marginLeft: 6 }}>{roomData.code}</strong>
+              </div>
+              <button className="btn" type="button" onClick={handleCopy}>
+                Copier le code
+              </button>
+              <div className="pill">Joueurs : {players.length}/5</div>
+              <div className="pill">
+                Statut : {roomData.status === 'waiting' ? '🟡 En attente' : '🟢 En jeu'}
+                {isGameStarted && " - Redirection..."}
+              </div>
+            </div>
+
+            <ul style={{ margin: 0, paddingLeft: 18 }}>
+              {players.map((p) => (
+                  <li key={p.id}>
+                    {p.pseudo}
+                    {p.id === user?.id ? " (moi)" : ""}
+                    {p.role === 'host' ? " ⭐" : ""}
+                  </li>
+              ))}
+            </ul>
+
+            <div style={{ display: "flex", gap: 12 }}>
+              <button className="btn btn--ghost" type="button" onClick={handleLeave}>
+                Quitter
+              </button>
+              {isHost ? (
+                  <button
+                      className="btn"
+                      type="button"
+                      onClick={handleStart}
+                      disabled={!canStart || starting || isGameStarted}
+                  >
+                    {starting ? "Démarrage..." :
+                        isGameStarted ? "Redirection..." :
+                            "Lancer la partie"}
+                    {!canStart && !isGameStarted ? " (2-5 joueurs)" : ""}
+                  </button>
+              ) : (
+                  <div className="pill">
+                    {isGameStarted ? 'Partie en cours - Redirection...' : 'En attente de l\'hôte…'}
+                  </div>
+              )}
+            </div>
+          </section>
+        </main>
+        <aside className="auth__art" aria-hidden="true" />
+      </div>
   );
 }
 
@@ -109,11 +193,6 @@ export default function WaitingRoom() {
   const [search] = useSearchParams();
   const isHost = search.get("host") === "1";
   const pwd = search.get("pwd") || "";
-  const username = localStorage.getItem("username") || "Joueur";
 
-  return (
-    <RoomProvider roomId={roomId} username={username} isHost={isHost} roomPassword={pwd}>
-      <WaitingShell />
-    </RoomProvider>
-  );
+  return <WaitingShell />;
 }
