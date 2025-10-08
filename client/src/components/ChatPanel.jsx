@@ -1,3 +1,4 @@
+// src/components/
 import { useEffect, useRef, useState } from "react";
 import { useGame } from "../context/GameContext.jsx";
 

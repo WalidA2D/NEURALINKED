@@ -6,7 +6,8 @@ import dotenv from 'dotenv';
 import authRoutes from './src/routes/authRoutes.js';
 import { query } from './src/config/database.js';
 import { supabase } from './src/config/supabase.js';
-
+// room route
+import roomRoutes from "./src/routes/roomRoutes.js";
 
 dotenv.config();
 
@@ -19,6 +20,7 @@ app.use((req, _res, next) => {
   console.log('➡️', req.method, req.originalUrl);
   next();
 });
+
 
 
 // Health API
@@ -40,6 +42,13 @@ app.get('/api/health/db', async (_req, res) => {
     res.status(500).json({ ok: false, error: 'DB not reachable' });
   }
 });
+
+
+
+
+
+// Routes des parties
+app.use("/api/rooms", roomRoutes);
 
 app.get('/api/health/supabase', async (_req, res) => {
   try {
