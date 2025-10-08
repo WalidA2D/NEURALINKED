@@ -77,7 +77,7 @@ io.on("connection", (socket) => {
   });
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {
   console.log(`HTTP+WS on http://localhost:${PORT}`);
 });
