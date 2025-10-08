@@ -13,9 +13,13 @@ app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
 // auth routes:
 import authRoutes from "./src/routes/authRoutes.js";
+// room route
+import roomRoutes from "./src/routes/roomRoutes.js";
 
 // Routes d'authentification
 app.use("/api/auth", authRoutes);
+// Routes des parties
+app.use("/api/rooms", roomRoutes);
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`API on http://localhost:${PORT}`));
