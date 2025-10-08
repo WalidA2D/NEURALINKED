@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 
 import authRoutes from './src/routes/authRoutes.js';
 import { query } from './src/config/database.js';
+import { supabase } from './src/config/supabase.js';
+
 
 dotenv.config();
 
@@ -39,14 +41,44 @@ app.get('/api/health/db', async (_req, res) => {
   }
 });
 
+app.get('/api/health/supabase', async (_req, res) => {
+  try {
+    const { data, error } = await supabase
+      .from('utilisateur') // respecte bien la casse de ta table
+      .select('id')
+      .limit(1);
+    if (error) throw error;
+    res.json({ ok: true, rows: data?.length ?? 0 });
+  } catch (e) {
+    console.error('Supabase health error:', e);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 // === Tes routes d'auth ===
 app.use('/api/auth', authRoutes);
 
-// TEMP: doit répondre si l'URL est bonne
 app.post('/api/auth/register', (req, res) => {
   return res.json({ ok: true, echo: req.body || null, from: 'inline route' });
 });
 
+
+// GET /api/users?pseudo=...&email=...
+app.get('/api/users', async (req, res) => {
+  try {
+    const { pseudo, email } = req.query;
+    let q = supabase.from('utilisateur').select('id,pseudo,email,date_creation,derniere_connexion');
+
+    if (pseudo) q = q.eq('pseudo', pseudo);
+    if (email) q = q.eq('email', email);
+
+    const { data, error } = await q.order('id', { ascending: true });
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (e) {
+    res.status(500).json({ success: false, message: e.message });
+  }
+});
 
 // 404 (Express 5 : pas de '*')
 app.use((req, res) => {

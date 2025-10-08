@@ -1,107 +1,79 @@
-// server/src/controllers/authController.js
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
-import { query } from '../config/database.js';
+import { supabase } from '../config/supabase.js';
 
 function signToken(payload) {
   return jwt.sign(payload, process.env.JWT_SECRET || 'fallback_secret', { expiresIn: '24h' });
 }
 
-/**
- * POST /api/auth/register
- * body: { pseudo, email, mot_de_passe }
- */
+// POST /api/auth/register
 export const register = async (req, res) => {
   try {
     const { pseudo, email, mot_de_passe } = req.body;
-
     if (!pseudo || !email || !mot_de_passe) {
-      return res.status(400).json({ success: false, message: 'Tous les champs sont obligatoires' });
+      return res.status(400).json({ success:false, message:'Tous les champs sont obligatoires' });
     }
 
     // existe déjà ?
-    const exists = await query(
-      `select id from public."Utilisateur" where pseudo = $1 or email = $2 limit 1`,
-      [pseudo, email]
-    );
-    if (exists.rowCount > 0) {
-      return res.status(409).json({
-        success: false,
-        message: 'Un utilisateur avec ce pseudo ou email existe déjà',
-      });
+    const { data: exists, error: exErr } = await supabase
+      .from('utilisateur') // 👈 minuscule
+      .select('id')
+      .or(`pseudo.eq.${pseudo},email.eq.${email}`)
+      .limit(1);
+    if (exErr) throw exErr;
+    if (exists?.length) {
+      return res.status(409).json({ success:false, message:'Un utilisateur avec ce pseudo ou email existe déjà' });
     }
 
     const hashed = await bcrypt.hash(mot_de_passe, 12);
 
-    const inserted = await query(
-      `insert into public."Utilisateur" (pseudo, email, mot_de_passe)
-       values ($1, $2, $3)
-       returning id, pseudo, email, date_creation`,
-      [pseudo, email, hashed]
-    );
-    const user = inserted.rows[0];
+    const { data: inserted, error: insErr } = await supabase
+      .from('utilisateur')
+      .insert([{ pseudo, email, mot_de_passe: hashed }])
+      .select('id,pseudo,email,date_creation')
+      .single();
+    if (insErr) throw insErr;
 
-    const token = signToken({ userId: user.id, pseudo: user.pseudo });
-
-    res.status(201).json({
-      success: true,
-      message: 'Utilisateur créé avec succès',
-      data: { ...user, token },
-    });
+    const token = signToken({ userId: inserted.id, pseudo: inserted.pseudo });
+    res.status(201).json({ success:true, message:'Utilisateur créé avec succès', data: { ...inserted, token } });
   } catch (error) {
-    console.error('❌ Erreur lors de l’inscription:', error);
-    if (error?.code === '23505') {
-      return res.status(409).json({
-        success: false,
-        message: 'Pseudo ou email déjà utilisé',
-      });
-    }
-    res.status(500).json({ success: false, message: "Erreur serveur lors de l'inscription" });
+    console.error('❌ Register (supabase-js):', error);
+    // si contraintes uniques en base -> code "23505" côté SQL ; via supabase-js l’erreur est textuelle
+    return res.status(500).json({ success:false, message:"Erreur serveur lors de l'inscription" });
   }
 };
 
-/**
- * POST /api/auth/login
- * body: { identifiant, mot_de_passe }
- */
+// POST /api/auth/login
 export const login = async (req, res) => {
   try {
     const { identifiant, mot_de_passe } = req.body;
-
     if (!identifiant || !mot_de_passe) {
-      return res.status(400).json({
-        success: false,
-        message: 'Identifiant et mot de passe requis',
-      });
+      return res.status(400).json({ success:false, message:'Identifiant et mot de passe requis' });
     }
 
-    const found = await query(
-      `select id, pseudo, email, mot_de_passe, date_creation, derniere_connexion
-       from public."Utilisateur"
-       where pseudo = $1 or email = $1
-       limit 1`,
-      [identifiant]
-    );
-    if (found.rowCount === 0) {
-      return res.status(401).json({ success: false, message: 'Identifiant ou mot de passe incorrect' });
+    const { data: users, error } = await supabase
+      .from('utilisateur')
+      .select('id,pseudo,email,mot_de_passe,date_creation,derniere_connexion')
+      .or(`pseudo.eq.${identifiant},email.eq.${identifiant}`)
+      .limit(1);
+    if (error) throw error;
+    if (!users?.length) {
+      return res.status(401).json({ success:false, message:'Identifiant ou mot de passe incorrect' });
     }
 
-    const user = found.rows[0];
+    const user = users[0];
     const ok = await bcrypt.compare(mot_de_passe, user.mot_de_passe || '');
-    if (!ok) {
-      return res.status(401).json({ success: false, message: 'Identifiant ou mot de passe incorrect' });
-    }
+    if (!ok) return res.status(401).json({ success:false, message:'Identifiant ou mot de passe incorrect' });
 
-    // mets à jour et récupère la nouvelle valeur
-    const up = await query(
-      `update public."Utilisateur" set derniere_connexion = now()
-       where id = $1
-       returning derniere_connexion`,
-      [user.id]
-    );
+    const { data: up, error: upErr } = await supabase
+      .from('utilisateur')
+      .update({ derniere_connexion: new Date().toISOString() })
+      .eq('id', user.id)
+      .select('derniere_connexion')
+      .single();
+    if (upErr) throw upErr;
 
     const token = signToken({ userId: user.id, pseudo: user.pseudo });
-
     res.json({
       success: true,
       message: 'Connexion réussie',
@@ -110,38 +82,33 @@ export const login = async (req, res) => {
         pseudo: user.pseudo,
         email: user.email,
         date_creation: user.date_creation,
-        derniere_connexion: up.rows[0]?.derniere_connexion ?? user.derniere_connexion,
+        derniere_connexion: up?.derniere_connexion ?? user.derniere_connexion,
         token,
       },
     });
   } catch (error) {
-    console.error('❌ Erreur lors de la connexion:', error);
-    res.status(500).json({ success: false, message: 'Erreur serveur lors de la connexion' });
+    console.error('❌ Login (supabase-js):', error);
+    res.status(500).json({ success:false, message:'Erreur serveur lors de la connexion' });
   }
 };
 
-/**
- * GET /api/auth/profile
- * headers: Authorization: Bearer <token>
- */
+// GET /api/auth/profile (protégée)
 export const getProfile = async (req, res) => {
   try {
     const userId = req.userId;
-
-    const result = await query(
-      `select id, pseudo, email, date_creation, derniere_connexion
-       from public."Utilisateur"
-       where id = $1`,
-      [userId]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
+    const { data, error } = await supabase
+      .from('utilisateur')
+      .select('id,pseudo,email,date_creation,derniere_connexion')
+      .eq('id', userId)
+      .single();
+    if (error?.code === 'PGRST116') {
+      return res.status(404).json({ success:false, message:'Utilisateur non trouvé' });
     }
+    if (error) throw error;
 
-    res.json({ success: true, data: result.rows[0] });
+    res.json({ success:true, data });
   } catch (error) {
-    console.error('❌ Erreur lors de la récupération du profil:', error);
-    res.status(500).json({ success: false, message: 'Erreur serveur' });
+    console.error('❌ Profile (supabase-js):', error);
+    res.status(500).json({ success:false, message:'Erreur serveur' });
   }
 };
