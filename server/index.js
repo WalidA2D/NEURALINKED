@@ -22,7 +22,6 @@ app.use((req, _res, next) => {
   next();
 });
 
-
 // Health API
 app.get('/api/health', (_req, res) => {
   res.json({
@@ -46,9 +45,9 @@ app.get('/api/health/db', async (_req, res) => {
 app.get('/api/health/supabase', async (_req, res) => {
   try {
     const { data, error } = await supabase
-      .from('utilisateur') // respecte bien la casse de ta table
-      .select('id')
-      .limit(1);
+        .from('utilisateur')
+        .select('id')
+        .limit(1);
     if (error) throw error;
     res.json({ ok: true, rows: data?.length ?? 0 });
   } catch (e) {
@@ -57,6 +56,8 @@ app.get('/api/health/supabase', async (_req, res) => {
   }
 });
 
+
+
 // === Tes routes d'auth ===
 app.use('/api/auth', authRoutes);
 
@@ -64,6 +65,8 @@ app.post('/api/auth/register', (req, res) => {
   return res.json({ ok: true, echo: req.body || null, from: 'inline route' });
 });
 
+// Routes des parties
+app.use("/api/rooms", roomRoutes);
 
 // GET /api/users?pseudo=...&email=...
 app.get('/api/users', async (req, res) => {
@@ -74,10 +77,6 @@ app.get('/api/users', async (req, res) => {
     if (pseudo) q = q.eq('pseudo', pseudo);
     if (email) q = q.eq('email', email);
 
-
-// Routes des parties
-app.use("/api/rooms", roomRoutes);
-
     const { data, error } = await q.order('id', { ascending: true });
     if (error) throw error;
     res.json({ success: true, data });
@@ -86,11 +85,10 @@ app.use("/api/rooms", roomRoutes);
   }
 });
 
-// 404 (Express 5 : pas de '*')
+// 404 (DOIT ÊTRE LA DERNIÈRE ROUTE)
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route non trouvée' });
 });
-
 
 app.listen(PORT, () => {
   console.log(`API on http://localhost:${PORT}`);
