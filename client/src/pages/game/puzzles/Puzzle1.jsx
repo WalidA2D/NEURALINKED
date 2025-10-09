@@ -18,13 +18,15 @@ export default function Puzzle1() {
   const [success, setSuccess] = useState(false);
 
   const baseColors = [
-    { name: "Bleu clair", value: "#6EC1E4" },
-    { name: "Rouge clair", value: "#F27C7C" },
-    { name: "Jaune", value: "#F9E55B" },
-    { name: "Gris", value: "#DADADA" },
-    { name: "Vert", value: "#8BC34A" },
-    { name: "Blanc", value: "#FFFFFF" },
-  ];
+  { name: "Bleu clair", value: "#6EC1E4" },
+  { name: "Rouge clair", value: "#F27C7C" },
+  { name: "Jaune", value: "#F9E55B" },
+  { name: "Vert", value: "#8BC34A" },
+  { name: "Blanc", value: "#FFFFFF" },
+  { name: "Orange", value: "#FFA500" },
+  { name: "Violet", value: "#8A2BE2" },
+];
+
 
   const correctFlag = ["#0047AB", "#FFFFFF", "#D90429"]; // bleu foncé, blanc, rouge
 
@@ -53,37 +55,102 @@ export default function Puzzle1() {
     }
   }
 
-  // Mélange automatique
-  function mixColors(pair) {
-    const [c1, c2] = pair;
-    let result = "#999";
+function mixColors(pair) {
+  const [c1, c2] = pair;
+  let result;
 
-    // Bleu foncé
-    if (
-      (c1 === "#6EC1E4" && c2 === "#DADADA") ||
-      (c2 === "#6EC1E4" && c1 === "#DADADA")
-    )
-      result = "#0047AB";
-    // Blanc
-    else if (
-      (c1 === "#F9E55B" && c2 === "#DADADA") ||
-      (c2 === "#F9E55B" && c1 === "#DADADA")
-    )
-      result = "#FFFFFF";
-    // Rouge vif
-    else if (
-      (c1 === "#F9E55B" && c2 === "#F27C7C") ||
-      (c2 === "#F9E55B" && c1 === "#F27C7C")
-    )
-      result = "#D90429";
-    else result = "#BBBBBB";
+  // Bleu foncé (Bleu clair + Violet)
+  if (
+    (c1 === "#6EC1E4" && c2 === "#8A2BE2") ||
+    (c2 === "#6EC1E4" && c1 === "#8A2BE2")
+  )
+    result = "#0047AB";
 
-    setMixedColor(result);
-    setTubeColors([]);
-    setMessage(
-      "🧠 Une nouvelle teinte de souvenir apparaît... glisse-la vers le drapeau !"
-    );
-  }
+  // Rouge foncé (Rouge clair + Orange)
+  else if (
+    (c1 === "#F27C7C" && c2 === "#FFA500") ||
+    (c2 === "#F27C7C" && c1 === "#FFA500")
+  )
+    result = "#D90429";
+
+  // Vert (Bleu clair + Jaune)
+  else if (
+    (c1 === "#6EC1E4" && c2 === "#F9E55B") ||
+    (c2 === "#6EC1E4" && c1 === "#F9E55B")
+  )
+    result = "#4CAF50";
+
+  // Orange clair (Rouge clair + Jaune)
+  else if (
+    (c1 === "#F27C7C" && c2 === "#F9E55B") ||
+    (c2 === "#F27C7C" && c1 === "#F9E55B")
+  )
+    result = "#FF8C42";
+
+  // Violet clair (Rouge clair + Bleu clair)
+  else if (
+    (c1 === "#F27C7C" && c2 === "#6EC1E4") ||
+    (c2 === "#F27C7C" && c1 === "#6EC1E4")
+  )
+    result = "#A569BD";
+
+  // Jaune clair (Jaune + Blanc)
+  else if (
+    (c1 === "#F9E55B" && c2 === "#FFFFFF") ||
+    (c2 === "#F9E55B" && c1 === "#FFFFFF")
+  )
+    result = "#FFF59D";
+
+  // Rouge clair (Rouge clair + Blanc)
+  else if (
+    (c1 === "#F27C7C" && c2 === "#FFFFFF") ||
+    (c2 === "#F27C7C" && c1 === "#FFFFFF")
+  )
+    result = "#FFA6A6";
+
+  // Bleu clair (Bleu clair + Blanc)
+  else if (
+    (c1 === "#6EC1E4" && c2 === "#FFFFFF") ||
+    (c2 === "#6EC1E4" && c1 === "#FFFFFF")
+  )
+    result = "#AED6F1";
+
+  // Vert clair (Vert + Blanc)
+  else if (
+    (c1 === "#8BC34A" && c2 === "#FFFFFF") ||
+    (c2 === "#8BC34A" && c1 === "#FFFFFF")
+  )
+    result = "#C8E6C9";
+
+  // Orange clair (Orange + Blanc)
+  else if (
+    (c1 === "#FFA500" && c2 === "#FFFFFF") ||
+    (c2 === "#FFA500" && c1 === "#FFFFFF")
+  )
+    result = "#FFCD8C";
+
+  // Violet clair (Violet + Blanc)
+  else if (
+    (c1 === "#8A2BE2" && c2 === "#FFFFFF") ||
+    (c2 === "#8A2BE2" && c1 === "#FFFFFF")
+  )
+    result = "#B685E6";
+
+  // Mélanges secondaires Gris + Couleur pour adoucir
+  else if (c1 === "#DADADA") result = c2;
+  else if (c2 === "#DADADA") result = c1;
+
+  // Mélanges de la même couleur → même couleur
+  else if (c1 === c2) result = c1;
+
+  setMixedColor(result);
+  setTubeColors([]);
+  setMessage(
+    "🧠 Une nouvelle teinte de souvenir apparaît... glisse-la vers le drapeau !"
+  );
+}
+
+
 
   // Déposer une couleur sur le drapeau
   function dropOnFlag(e, index) {
