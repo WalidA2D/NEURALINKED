@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "framer-motion": "^12.23.22",
+    "react-dnd": "^16.0.1",
+    "react-dnd-html5-backend": "^16.0.1",
+    "react-router-dom": "^7.9.3"
+  }
+}

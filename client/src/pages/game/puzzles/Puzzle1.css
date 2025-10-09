@@ -1,0 +1,127 @@
+.puzzle {
+  padding: 2rem;
+  text-align: center;
+  font-family: "Poppins", sans-serif;
+}
+
+h2 {
+  margin-bottom: 1rem;
+}
+
+.message {
+  font-size: 1rem;
+  margin-bottom: 1.5rem;
+  color: #333;
+  font-style: italic;
+  background: #f9f9f9;
+  padding: 1rem;
+  border-radius: 10px;
+}
+
+.color-palette {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin: 1.5rem 0;
+  flex-wrap: wrap;
+}
+
+.color-btn {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid #ddd;
+  cursor: grab;
+  transition: transform 0.2s ease, border 0.3s;
+}
+
+.color-btn:hover {
+  transform: scale(1.1);
+  border-color: #000;
+}
+
+.mix-tube {
+  margin: 2rem auto;
+  padding: 1rem;
+  border: 2px dashed #aaa;
+  border-radius: 12px;
+  width: 300px;
+  background: linear-gradient(to bottom, #e0e0e0, #f5f5f5); /* fond visible */
+  text-align: center;
+  position: relative;
+}
+
+.mix-tube p {
+  font-size: 0.9rem;
+  color: #333;
+  margin-bottom: 0.5rem;
+}
+
+.tube {
+  width: 100%;
+  height: 100px;
+  margin: 0.5rem auto;
+  border: 2px solid #888;
+  border-radius: 10px 10px 30px 30px;
+  background: #eee;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  position: relative;
+}
+
+/* Mini-couleurs glissées dans le tube */
+.mini-color {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2px solid #555;
+}
+
+/* Couleur mélangée finale */
+.mixed-color {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 3px solid #333;
+  cursor: grab; /* draggable visuel */
+}
+
+.flag {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+  gap: 10px;
+}
+
+.flag-slot {
+  width: 80px;
+  height: 100px;
+  border: 2px dashed #ccc;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  color: #555;
+  background-color: #f9f9f9;
+}
+
+.btn-validate,
+.btn-finish {
+  margin-top: 2rem;
+  padding: 0.8rem 2rem;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: background 0.3s;
+}
+
+.btn-validate:hover,
+.btn-finish:hover {
+  background-color: #0056b3;
+}

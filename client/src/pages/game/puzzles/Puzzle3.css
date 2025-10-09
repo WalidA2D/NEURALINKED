@@ -1,0 +1,139 @@
+.puzzle3 {
+  background: linear-gradient(135deg, #e9e4ff, #ffeef6);
+  border-radius: 25px;
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  padding: 40px;
+  max-width: 1100px;
+  margin: 60px auto;
+  text-align: center;
+  font-family: "Poppins", sans-serif;
+}
+
+.puzzle3-title {
+  font-size: 2rem;
+  color: #4b2abf;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.puzzle3-desc {
+  color: #444;
+  margin-bottom: 40px;
+  font-size: 1.05rem;
+}
+
+.puzzle3-audios {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 25px;
+  flex-wrap: wrap;
+  margin-bottom: 30px;
+}
+
+.audio-card {
+  background: white;
+  border: 2px solid #ddd0ff;
+  border-radius: 20px;
+  padding: 20px;
+  width: 220px;
+  box-shadow: 0 5px 15px rgba(75, 42, 191, 0.1);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.audio-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 20px rgba(75, 42, 191, 0.25);
+}
+
+.audio-card.playing {
+  border-color: #7a5af8;
+  box-shadow: 0 0 15px rgba(122, 90, 248, 0.5);
+}
+
+.audio-card h3 {
+  color: #4b2abf;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+
+.btn-audio {
+  background: #4b2abf;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+  width: 100%;
+}
+
+.btn-audio:hover {
+  background: #362091;
+}
+
+.btn-audio.pause {
+  background: #e63946;
+}
+
+.btn-audio.pause:hover {
+  background: #c71c2f;
+}
+
+.ordre-input {
+  width: 60px;
+  padding: 6px;
+  margin-top: 10px;
+  border-radius: 8px;
+  border: 2px solid #cfc2ff;
+  text-align: center;
+  font-weight: bold;
+  color: #4b2abf;
+}
+
+.btn-validate {
+  background: #4b2abf;
+  color: white;
+  border: none;
+  padding: 12px 30px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-validate:hover {
+  background: #362091;
+}
+
+.puzzle3-msg {
+  margin-top: 25px;
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.puzzle3-msg.success {
+  color: #2e9d5b;
+}
+
+.puzzle3-msg.error {
+  color: #e63946;
+}
+
+.btn-next {
+  margin-top: 20px;
+  background: #2e9d5b;
+  color: white;
+  border: none;
+  padding: 10px 25px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: 0.2s;
+}
+
+.btn-next:hover {
+  background: #238046;
+}
