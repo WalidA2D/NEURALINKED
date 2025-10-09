@@ -39,15 +39,31 @@ export function GameProvider({ children, roomId, username }) {
         };
 
         // Handler pour les nouveaux messages
+
         const onChatMessage = (msg) => {
             console.log("💬 [GameContext] chat:message reçu:", msg);
             setMessages((prevMessages) => {
-                // Éviter les doublons
-                const exists = prevMessages.some(m => m.id === msg.id || (m.ts === msg.ts && m.text === msg.text));
+                // 🔥 CORRECTION : Vérifier si c'est un message temporaire à remplacer
+                const isReplacingTemp = prevMessages.some(m =>
+                    m.temp && m.user === msg.user && m.text === msg.text && Math.abs(m.ts - msg.ts) < 1000
+                );
+
+                if (isReplacingTemp) {
+                    console.log("🔄 [GameContext] Remplacement du message temporaire");
+                    return prevMessages.map(m =>
+                        (m.temp && m.user === msg.user && m.text === msg.text && Math.abs(m.ts - msg.ts) < 1000)
+                            ? msg
+                            : m
+                    );
+                }
+
+                // Éviter les doublons pour les messages normaux
+                const exists = prevMessages.some(m => m.id === msg.id);
                 if (exists) {
                     console.log("⚠️ [GameContext] Message déjà présent, ignoré");
                     return prevMessages;
                 }
+
                 return [...prevMessages, msg];
             });
         };
@@ -121,12 +137,13 @@ export function GameProvider({ children, roomId, username }) {
 
                 console.log("📤 [GameContext] Envoi du message:", payload);
 
-                // Ajout optimiste temporaire pour feedback immédiat
+                // Ajout optimiste avec un ID cohérent pour faciliter le remplacement
+                const tempId = `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
                 const tempMessage = {
-                    id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    id: tempId,
                     user: username,
                     text: text.trim(),
-                    ts: Date.now(),
+                    ts: payload.ts, // Même timestamp que le payload
                     temp: true
                 };
 
