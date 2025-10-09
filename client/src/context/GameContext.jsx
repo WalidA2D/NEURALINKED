@@ -39,22 +39,25 @@ export function GameProvider({ children, roomId, username }) {
         };
 
         // Handler pour les nouveaux messages
+        // Handler pour les nouveaux messages - VERSION PERMISSIVE
         const onChatMessage = (msg) => {
             console.log("💬 [GameContext] chat:message reçu:", msg);
+
             setMessages((prevMessages) => {
-                // Remplacer le message temporaire par le vrai
-                const tempIndex = prevMessages.findIndex(m =>
-                    m.temp && m.text === msg.text && m.user === msg.user && Math.abs(m.ts - msg.ts) < 5000
+                // 🔥 VERSION SIMPLIFIÉE : Supprimer TOUS les messages temporaires de cet utilisateur avec le même texte
+                const hasTempFromSameUser = prevMessages.some(m =>
+                    m.temp && m.user === msg.user && m.text === msg.text
                 );
 
-                if (tempIndex !== -1) {
-                    console.log("🔄 [GameContext] Remplacement du message temporaire");
-                    const newMessages = [...prevMessages];
-                    newMessages[tempIndex] = msg;
-                    return newMessages;
+                if (hasTempFromSameUser) {
+                    console.log("🔄 [GameContext] Suppression des messages temporaires et ajout du message réel");
+                    const filtered = prevMessages.filter(m =>
+                        !(m.temp && m.user === msg.user && m.text === msg.text)
+                    );
+                    return [...filtered, msg];
                 }
 
-                // Éviter les vrais doublons
+                // Éviter les doublons normaux
                 const exists = prevMessages.some(m => m.id === msg.id);
                 if (exists) {
                     console.log("⚠️ [GameContext] Message déjà présent, ignoré");
@@ -126,21 +129,22 @@ export function GameProvider({ children, roomId, username }) {
                     return;
                 }
 
+                const currentTime = Date.now();
                 const payload = {
                     roomId,
                     user: username,
                     text: text.trim(),
-                    ts: Date.now()
+                    ts: currentTime // 🔥 Même timestamp que le message temporaire
                 };
 
                 console.log("📤 [GameContext] Envoi du message:", payload);
 
-                // Ajout optimiste temporaire pour feedback immédiat
+                // Ajout optimiste avec le MÊME timestamp
                 const tempMessage = {
-                    id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+                    id: `temp-${currentTime}-${Math.random().toString(36).substr(2, 9)}`,
                     user: username,
                     text: text.trim(),
-                    ts: Date.now(),
+                    ts: currentTime, // 🔥 TRÈS IMPORTANT : même timestamp que le payload
                     temp: true
                 };
 
