@@ -8,16 +8,13 @@ export default function Puzzle2() {
   const { roomId } = useParams(); // ✅ nécessaire pour la navigation room
   const { goToStep } = useGame();
 
-  // --- Les 8 flacons avec emojis et lettres du mot COMPLEXE ---
   const flaconsRaw = [
-    { nom: "🌸", lettre: "C" }, // Fleur
-    { nom: "🍎", lettre: "O" }, // Fruit
-    { nom: "🧂", lettre: "M" }, // Sel
-    { nom: "🗑️", lettre: "P" }, // Poubelle
-    { nom: "💐", lettre: "L" }, // Parfum
+    { nom: "🌸", lettre: "G" }, // Fleur
+    { nom: "🍎", lettre: "R" }, // Fruit
+    { nom: "🧂", lettre: "A" }, // Sel
+    { nom: "🗑️", lettre: "S" }, // Poubelle
+    { nom: "💐", lettre: "S" }, // Parfum
     { nom: "🕯️", lettre: "E" }, // Encens
-    { nom: "❌", lettre: "X" }, // Xylène
-    { nom: "🌶️", lettre: "E" }, // Épice
   ];
 
   // Mélange aléatoire des flacons (exécuté une seule fois)
@@ -65,12 +62,12 @@ export default function Puzzle2() {
     if (cleaned === "COMPLEXE") {
       setMotValide(true);
       setMessage(
-        "Certaines odeurs sont complexes. Réfléchis bien pour deviner laquelle l’utilisateur a senti."
+        "Grasse est une ville connu pour une particularité :"
       );
       playSound("success");
       goToStep(2);
     } else {
-      const lettresRestantes = "COMPLEXE".length - cleaned.length;
+      const lettresRestantes = "GRASSE".length - cleaned.length;
       const indice =
         lettresRestantes > 0
           ? `💡 Il te manque encore ${lettresRestantes} lettre${
@@ -90,7 +87,7 @@ export default function Puzzle2() {
     if (choixFinal === "Parfum") {
       setChoixValide(true);
       setMessage(
-        "🌿 Bravo ! Tu as réveillé la mémoire olfactive : l’utilisateur a senti un parfum."
+        "🌿 Bravo ! Tu as réveillé la mémoire : l’utilisateur a senti les odeurs de Grasse."
       );
       playSound("success2");
     } else {
@@ -106,20 +103,20 @@ export default function Puzzle2() {
 
   return (
     <section className="puzzle2">
-      <h2>Énigme 2 — Le Souvenir parfumé 🌸</h2>
+      <h2>Énigme 2 — Le Souvenir d'une ville 🌸</h2>
 
       {/* si pas encore trouvé l'odeur */}
       {!choixValide && (
         <>
-          <p className="intro">
-            Devant toi, huit flacons gardent des traces d’un souvenir
-            olfactif.<br />
+           <p className="intro">
+            Devant toi, 6 flacons gardent des traces d'un souvenir d'une 
+            culture.<br />
             Clique sur chacun pour le retourner et découvrir la lettre cachée au
             dos.<br />
             Les lettres ne sont pas dans l’ordre — à toi de reconstituer le
             mot-clé.<br />
             💡 <strong>Indice :</strong> le mot à trouver commence par la lettre{" "}
-            <strong>C</strong>.
+            <strong>G</strong>.
           </p>
 
           {/* flacons visibles tant que l’énigme n’est pas finie */}
@@ -178,7 +175,7 @@ export default function Puzzle2() {
               <p className="instruction-choix">{message}</p>
 
               <div className="choix-odeur">
-                {["Fleur", "Fruit", "Sel", "Poubelle", "Parfum"].map((f) => (
+                {["Religion", "Fruit", "Mer", "Commerce", "Parfum"].map((f) => (
                   <button
                     key={f}
                     className={`btn-odeur ${choixFinal === f ? "selected" : ""}`}
@@ -205,7 +202,7 @@ export default function Puzzle2() {
       {motValide && choixValide && (
         <div className="celebration">
           <p>
-            🌸 Souvenir restauré — tu as réveillé une mémoire olfactive
+            🌸 Souvenir restauré — tu as réveillé une mémoire 
             essentielle.
           </p>
           <button className="btn-next" onClick={passerEnigme}>
