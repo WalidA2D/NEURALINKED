@@ -1,4 +1,4 @@
-// NEURALINKED/client/server.cjs - VERSION COMPLÈTE CORRIGÉE
+// NEURALINKED/client/server.cjs - VERSION AVEC CORS MULTI-MACHINES
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -10,20 +10,33 @@ const rooms = new Map();
 
 app.get("/health", (_req, res) => res.json({ ok: true, ws: true }));
 
+// 🔥 CORRECTION CORS : Accepter toutes les origines en développement
 const io = new Server(httpServer, {
   path: "/socket.io",
   cors: {
-    origin: ["http://localhost:5173", "http://127.0.0.1:5173"],
+    origin: function (origin, callback) {
+      // Autoriser les requêtes sans origine (comme Postman, curl, etc.)
+      if (!origin) return callback(null, true);
+
+      // En développement : autoriser tout
+      // En production : remplacer par une liste d'origines autorisées
+      callback(null, true);
+    },
     methods: ["GET", "POST"],
     credentials: true,
+    allowedHeaders: ["Content-Type"],
   },
+  // Options supplémentaires pour améliorer la connexion
+  transports: ["websocket", "polling"],
+  pingTimeout: 60000,
+  pingInterval: 25000,
 });
 
 // ⬇️⬇️⬇️ FONCTION FETCH POUR NODE.JS ⬇️⬇️⬇️
 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 io.on("connection", (socket) => {
-  console.log(`🔌 Nouvelle connexion: ${socket.id}`);
+  console.log(`🔌 Nouvelle connexion: ${socket.id} depuis ${socket.handshake.address}`);
 
   function broadcastRoom(roomId) {
     const room = rooms.get(roomId);
@@ -37,7 +50,7 @@ io.on("connection", (socket) => {
   }
 
   socket.on("room:join", async ({ roomId, username, password, host }) => {
-    console.log(`🚪 room:join - ${username} rejoint ${roomId}`);
+    console.log(`🚪 room:join - ${username} rejoint ${roomId} (socket: ${socket.id})`);
 
     if (!roomId) return;
     if (!rooms.has(roomId)) {
@@ -56,16 +69,14 @@ io.on("connection", (socket) => {
     broadcastRoom(roomId);
   });
 
-  // 🔥 MODIFIÉ : game:join ne charge plus l'historique
   socket.on("game:join", ({ roomId, username }) => {
-    console.log(`🎮 game:join - ${username} dans ${roomId}`);
+    console.log(`🎮 game:join - ${username} dans ${roomId} (socket: ${socket.id})`);
     if (!roomId) return;
     socket.join(roomId);
   });
 
-  // 🔥 NOUVEAU : Endpoint dédié pour charger l'historique
   socket.on("chat:load-history", async ({ roomId }) => {
-    console.log(`📥 Demande historique pour: ${roomId}`);
+    console.log(`📥 Demande historique pour: ${roomId} par ${socket.id}`);
 
     if (!roomId) return;
 
@@ -88,7 +99,7 @@ io.on("connection", (socket) => {
   socket.on("chat:message", async (data) => {
     const { roomId, user, text, ts } = data;
 
-    console.log(`💬 Message de ${user} dans ${roomId}: "${text?.substring(0, 50)}"`);
+    console.log(`💬 Message de ${user} (${socket.id}) dans ${roomId}: "${text?.substring(0, 50)}"`);
 
     if (!roomId || !user || !text) {
       console.error('❌ Données manquantes');
@@ -126,8 +137,14 @@ io.on("connection", (socket) => {
       console.error('❌ Erreur API:', error.message);
     }
 
+    // 🔥 DEBUG : Vérifier qui est dans la room
+    const roomSockets = io.sockets.adapter.rooms.get(roomId);
+    console.log(`📤 Diffusion à ${roomSockets?.size || 0} joueurs dans ${roomId}`);
+    if (roomSockets) {
+      console.log(`   Sockets dans la room: ${Array.from(roomSockets).join(', ')}`);
+    }
+
     // Diffuser à tous dans la room
-    console.log(`📤 Diffusion à ${io.sockets.adapter.rooms.get(roomId)?.size || 0} joueurs`);
     io.to(roomId).emit("chat:message", message);
   });
 
@@ -177,10 +194,11 @@ io.on("connection", (socket) => {
       }
     }
   });
-}); // ⬅️ FIN du io.on("connection") - TOUS les listeners doivent être AVANT
+});
 
 const PORT = process.env.PORT || 4000;
-httpServer.listen(PORT, () => {
-  console.log(`\n🚀 HTTP+WebSocket démarré sur http://localhost:${PORT}`);
-  console.log(`📡 Socket.io path: /socket.io\n`);
+httpServer.listen(PORT, '0.0.0.0', () => {
+  console.log(`\n🚀 HTTP+WebSocket démarré sur http://0.0.0.0:${PORT}`);
+  console.log(`📡 Socket.io path: /socket.io`);
+  console.log(`🌐 Accessible depuis d'autres machines\n`);
 });
