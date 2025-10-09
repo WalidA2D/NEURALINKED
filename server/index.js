@@ -5,6 +5,8 @@ import dotenv from 'dotenv';
 
 import authRoutes from './src/routes/authRoutes.js';
 import roomRoutes from "./src/routes/roomRoutes.js";
+import messageRoutes from "./src/routes/messageRoutes.js"; // ⬅️ Correction
+
 import { query } from './src/config/database.js';
 import { supabase } from './src/config/supabase.js';
 
@@ -55,15 +57,14 @@ app.get('/api/health/supabase', async (_req, res) => {
   }
 });
 
-// Routes d'authentification
+// Routes
+app.use('/api/messages', messageRoutes); // ⬅️ Utilisation correcte
 app.use('/api/auth', authRoutes);
+app.use("/api/rooms", roomRoutes);
 
 app.post('/api/auth/register', (req, res) => {
   return res.json({ ok: true, echo: req.body || null, from: 'inline route' });
 });
-
-// Routes des parties
-app.use("/api/rooms", roomRoutes);
 
 // GET /api/users?pseudo=...&email=...
 app.get('/api/users', async (req, res) => {
