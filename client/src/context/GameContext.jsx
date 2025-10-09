@@ -38,17 +38,30 @@ export function GameProvider({ children, roomId, username }) {
             setMessages(history || []);
         };
 
-        // Handler pour les nouveaux messages
+        // 🔥 CORRECTION COMPLÈTE : Handler pour les nouveaux messages
         const onChatMessage = (msg) => {
             console.log("💬 [GameContext] chat:message reçu:", msg);
+
             setMessages((prevMessages) => {
-                // Éviter les doublons
-                const exists = prevMessages.some(m => m.id === msg.id || (m.ts === msg.ts && m.text === msg.text));
+                // Éviter les doublons - méthode améliorée
+                const exists = prevMessages.some(m =>
+                    m.id === msg.id ||
+                    (m.temp && m.text === msg.text && m.user === msg.user) ||
+                    (m.ts === msg.ts && m.text === msg.text && m.user === msg.user)
+                );
+
                 if (exists) {
                     console.log("⚠️ [GameContext] Message déjà présent, ignoré");
                     return prevMessages;
                 }
-                return [...prevMessages, msg];
+
+                // 🔥 CORRECTION IMPORTANTE : Supprimer les messages temporaires correspondants
+                const filteredMessages = prevMessages.filter(m =>
+                    !(m.temp && m.text === msg.text && m.user === msg.user)
+                );
+
+                console.log(`✅ [GameContext] Ajout du message ${msg.id} à la liste`);
+                return [...filteredMessages, msg];
             });
         };
 
@@ -58,11 +71,17 @@ export function GameProvider({ children, roomId, username }) {
             setTyping((t) => ({ ...t, [user]: isTyping }));
         };
 
+        // 🔥 DEBUG : Écouter tous les événements
+        const onAnyEvent = (eventName, ...args) => {
+            console.log(`🔍 [GameContext] Événement reçu: ${eventName}`, args);
+        };
+
         // 🔥 IMPORTANT : Enregistrer les listeners AVANT d'émettre
         socket.on("game:state", onGameState);
         socket.on("chat:history", onChatHistory);
         socket.on("chat:message", onChatMessage);
         socket.on("chat:typing", onTyping);
+        socket.onAny(onAnyEvent); // 🔥 DEBUG
 
         // Maintenant on peut émettre game:join
         console.log(`🚀 [GameContext] Émission game:join pour ${username} dans ${roomId}`);
@@ -75,6 +94,7 @@ export function GameProvider({ children, roomId, username }) {
             socket.off("chat:history", onChatHistory);
             socket.off("chat:message", onChatMessage);
             socket.off("chat:typing", onTyping);
+            socket.offAny(onAnyEvent); // 🔥 DEBUG
         };
     }, [socket, roomId, username]);
 
