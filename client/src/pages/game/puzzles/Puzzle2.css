@@ -1,0 +1,167 @@
+.puzzle2 {
+  padding: 2rem;
+  font-family: "Poppins", sans-serif;
+  color: #1f2937;
+  max-width: 900px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+.puzzle2 h2 {
+  color: #2f6f4e;
+  font-size: 1.9rem;
+  margin-bottom: 0.6rem;
+}
+
+.intro {
+  font-style: italic;
+  color: #375a49;
+  margin-bottom: 1.4rem;
+  line-height: 1.5;
+}
+
+/* flacons visibles */
+.flacons {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 1.2rem 0 1.6rem;
+}
+
+.flacon {
+  width: 120px;
+  height: 160px;
+  perspective: 1000px;
+  cursor: pointer;
+}
+
+.flacon-inner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  transition: transform 0.75s cubic-bezier(.2,.9,.3,1);
+  transform-style: preserve-3d;
+  border-radius: 12px;
+}
+
+.flacon.revealed .flacon-inner {
+  transform: rotateY(180deg);
+}
+
+.flacon-front, .flacon-back {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+  border-radius: 12px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow: 0 8px 18px rgba(16,24,40,0.08);
+}
+
+.flacon-front {
+  background: linear-gradient(180deg, #f7fbf8, #e8f6ee);
+  color: #254029;
+  font-size: 2.2rem; /* pour agrandir les emojis */
+  font-weight: 700;
+}
+
+.flacon-back {
+  background: linear-gradient(180deg, #2f6f4e, #7fbf9a);
+  color: #fff;
+  transform: rotateY(180deg);
+  font-size: 2.6rem;
+  font-weight: 800;
+}
+
+/* zone de saisie */
+.zone-mot {
+  margin-top: 1.5rem;
+}
+
+.saisie-mot {
+  display:flex;
+  gap: 0.6rem;
+  justify-content: center;
+  align-items:center;
+  margin-top: 0.8rem;
+}
+
+.saisie-mot input[type="text"] {
+  padding: 0.7rem 1rem;
+  width: 300px;
+  border-radius: 10px;
+  border: 2px solid #d9e6db;
+  font-size: 1rem;
+}
+
+.btn-valider-mot {
+  background: #2f6f4e;
+  color: white;
+  border: none;
+  padding: 0.7rem 1rem;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn-valider-mot:hover {
+  opacity: 0.9;
+}
+
+/* choix odeur */
+.zone-choix {
+  margin-top: 2rem;
+}
+
+.choix-odeur {
+  margin-top: 1rem;
+  display:flex;
+  gap:0.6rem;
+  justify-content:center;
+  flex-wrap:wrap;
+}
+
+.btn-odeur {
+  background: #f0fff5;
+  border: 1px solid #d9ead3;
+  padding: 0.6rem 1rem;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.btn-odeur.selected {
+  background: #2f6f4e;
+  color: white;
+  border-color: #2f6f4e;
+}
+
+.btn-validate-choice,
+.btn-next {
+  margin-top: 1rem;
+  padding: 0.6rem 1.1rem;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  background: #2f6f4e;
+  color: white;
+}
+
+.message {
+  margin-top: 1rem;
+  font-weight: 600;
+  color: #2b3b2f;
+}
+
+.celebration {
+  margin-top: 2rem;
+  padding: 2rem;
+  background: linear-gradient(180deg, #eaf8ef, #d4efdc);
+  border-radius: 12px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.1);
+  color: #1f3a2d;
+  font-weight: 600;
+}

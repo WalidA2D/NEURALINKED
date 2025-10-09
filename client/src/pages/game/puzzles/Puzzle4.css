@@ -1,0 +1,173 @@
+.puzzle4 {
+  text-align: center;
+  padding: 2rem;
+  color: #fff;
+  background: radial-gradient(circle at center, #101020, #000);
+  min-height: 100vh;
+}
+
+.puzzle4 .intro {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  opacity: 0.9;
+}
+
+.fragments {
+  display: flex;
+  justify-content: center;
+  gap: 2rem;
+  flex-wrap: wrap;
+}
+
+/* --- FRAGMENTS --- */
+.fragment {
+  width: 200px;
+  height: 220px;
+  background: #222;
+  border-radius: 1rem;
+  cursor: pointer;
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+  overflow: hidden;
+  border: 2px solid #444;
+  position: relative;
+}
+
+.fragment img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+  filter: blur(8px) grayscale(90%);
+  opacity: 0.4;
+  transition: all 0.6s ease-in-out;
+}
+
+.fragment p {
+  margin: 0.6rem 0;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.fragment:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 10px #00bcd4;
+}
+
+/* Quand le fragment est "réparé" */
+.fragment.unlocked img {
+  filter: blur(0px) grayscale(0%);
+  opacity: 1;
+  box-shadow: 0 0 20px #00ffcc;
+}
+
+.fragment.unlocked {
+  border-color: #00ffcc;
+  background: #111;
+}
+
+/* --- QUESTION BOX --- */
+.question-box {
+  margin-top: 2rem;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 1.5rem;
+  border-radius: 1rem;
+  display: inline-block;
+  max-width: 400px;
+  text-align: center;
+}
+
+.question-box h3 {
+  margin-bottom: 0.5rem;
+  color: #00ffcc;
+}
+
+.choices {
+  display: flex;
+  justify-content: center;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+
+.choices button {
+  background: #333;
+  color: white;
+  border: 1px solid #555;
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.choices button:hover {
+  background: #00bcd4;
+}
+
+.feedback {
+  margin-top: 0.5rem;
+  min-height: 1rem;
+}
+
+.close {
+  margin-top: 1rem;
+  background: transparent;
+  color: #ccc;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+/* --- FINAL SECTION --- */
+.final {
+  margin-top: 3rem;
+  padding: 2rem;
+  background: rgba(0, 255, 150, 0.1);
+  border-radius: 1rem;
+  animation: fadeIn 1s ease-in-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 60vh;
+  position: relative;
+}
+
+.final h3 {
+  color: #00ffcc;
+}
+
+.final audio {
+  margin-top: 1rem;
+}
+
+/* Bouton en bas */
+.final .btn {
+  position: static; /* supprime la position absolue */
+  margin-top: 2rem; /* espace sous la vidéo */
+  background: #00bcd4;
+  border: none;
+  padding: 0.8rem 1.5rem;
+  color: white;
+  border-radius: 0.6rem;
+  cursor: pointer;
+  font-size: 1.1rem;
+  font-weight: 600;
+  transition: background 0.3s, transform 0.2s;
+}
+
+.final .btn:hover {
+  background: #00ffcc;
+  transform: scale(1.05);
+}
+
+
+/* Animation d'apparition */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
