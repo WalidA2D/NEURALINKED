@@ -7,7 +7,7 @@ const SOCKET_PATH  = import.meta.env.VITE_SOCKET_PATH || "/socket.io"; // doit m
 const FORCE_WS     = (import.meta.env.VITE_SOCKET_FORCE_WS || "0") === "1";
 const WITH_CREDS   = (import.meta.env.VITE_SOCKET_WITH_CREDENTIALS || "0") === "1";
 const RECONN_MAX   = Number(import.meta.env.VITE_SOCKET_RECONNECT_ATTEMPTS || 10);
-const RECONN_DELAY = Number(import.meta.env.VITE_SOCKET_RECONNECT_DELAY || 1000); // ms (départ)
+const RECONN_DELAY = Number(import.meta.env.VITE_SOCKET_RECONNECT_DELAY || 1000); // ms
 
 // ========= Context =========
 const RoomCtx = createContext(null);
@@ -32,7 +32,6 @@ function useLocalRoom(roomId, username, wantHost, roomPassword) {
 export function RoomProvider({ children, roomId, username, isHost = false, roomPassword = "" }) {
   const isLocal = !SOCKET_URL;
   const socketRef = useRef(null);
-  const mountedRef = useRef(false);
 
   const [state, setState] = useState({
     connected: false,
@@ -58,9 +57,8 @@ export function RoomProvider({ children, roomId, username, isHost = false, roomP
       console.info("[Room] Mode local activé (pas de VITE_SOCKET_URL).");
       return;
     }
-
     if (socketRef.current) {
-      // Socket déjà créée -> on remet un join si roomId/username changent
+      // Socket déjà créée -> on s’assure d’être bien dans la room courante si props changent
       emitJoin(socketRef.current);
       return;
     }
@@ -74,15 +72,14 @@ export function RoomProvider({ children, roomId, username, isHost = false, roomP
       reconnection: true,
       reconnectionAttempts: RECONN_MAX,
       reconnectionDelay: RECONN_DELAY,
-      reconnectionDelayMax: 30_000, // cap
-      timeout: 20_000, // handshake timeout
+      reconnectionDelayMax: 30_000,
+      timeout: 20_000,
     });
     socketRef.current = s;
-    mountedRef.current = true;
 
     const onConnect = () => {
       console.info("[Room] connect:", s.id);
-      setState(st => ({ ...st, connected: true }));
+      setState((st) => ({ ...st, connected: true }));
       emitJoin(s);
     };
 
@@ -96,18 +93,18 @@ export function RoomProvider({ children, roomId, username, isHost = false, roomP
 
     const onReconnect = (n) => {
       console.info(`[Room] reconnected after #${n}, id:`, s.id);
-      setState(st => ({ ...st, connected: true }));
-      emitJoin(s); // 🔁 rejoin auto la room après reconnexion
+      setState((st) => ({ ...st, connected: true }));
+      emitJoin(s); // rejoin auto la room après reconnexion
     };
 
     const onDisconnect = (reason) => {
       console.warn("[Room] disconnect:", reason);
-      setState(st => ({ ...st, connected: false }));
+      setState((st) => ({ ...st, connected: false }));
     };
 
     const onRoomUpdate = (payload = {}) => {
       const { code, pwd, players, hostId } = payload;
-      setState(st => ({
+      setState((st) => ({
         ...st,
         code: code ?? st.code,
         pwd: pwd ?? st.pwd,
@@ -139,8 +136,33 @@ export function RoomProvider({ children, roomId, username, isHost = false, roomP
     };
     document.addEventListener("visibilitychange", onVis);
 
+    // Quitte proprement la room si on ferme/refresh
+    const onBeforeUnload = () => {
+      try { s.emit("room:leave", { roomId }); } catch {}
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+
+    // Déconnexion globale (depuis NavBar → handleLogout)
+    const onGlobalLogout = () => {
+      try { s.emit("room:leave", { roomId }); } catch {}
+      try { s.removeAllListeners(); } catch {}
+      try { s.disconnect(); } catch {}
+      socketRef.current = null;
+
+      setState({
+        connected: false,
+        code: "",
+        pwd: "",
+        players: [],
+        hostId: null,
+      });
+    };
+    window.addEventListener("GLOBAL_LOGOUT", onGlobalLogout);
+
     return () => {
       document.removeEventListener("visibilitychange", onVis);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+      window.removeEventListener("GLOBAL_LOGOUT", onGlobalLogout);
       s.off("connect", onConnect);
       s.off("connect_error", onConnectError);
       s.off("reconnect_attempt", onReconnectAttempt);
@@ -150,7 +172,6 @@ export function RoomProvider({ children, roomId, username, isHost = false, roomP
       s.off("room:start", onRoomStart);
       try { s.disconnect(); } catch {}
       socketRef.current = null;
-      mountedRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLocal, roomId, username, isHost, roomPassword]);

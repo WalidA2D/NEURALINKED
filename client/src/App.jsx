@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Link, Navigate } from "react-router-dom";
+// src/App.jsx
+import { BrowserRouter, Routes, Route, Link, Navigate, useNavigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "./context/AuthContext.jsx";
 import Home from "./pages/Home.jsx";
 import Login from "./pages/Login.jsx";
@@ -11,12 +12,31 @@ import Puzzle1 from "./pages/game/puzzles/Puzzle1.jsx";
 import Puzzle2 from "./pages/game/puzzles/Puzzle2.jsx";
 import Puzzle3 from "./pages/game/puzzles/Puzzle3.jsx";
 import Puzzle4 from "./pages/game/puzzles/Puzzle4.jsx";
-import RoomLayout from "./layouts/RoomLayout.jsx"; // ⬅️ nouveau
+import RoomLayout from "./layouts/RoomLayout.jsx";
 
 import "./App.css";
 
 function NavBar() {
   const { user, logout } = useAuth();
+  const nav = useNavigate();
+
+  async function handleLogout() {
+    try {
+      await logout?.(); // nettoie l'état auth (API/Supabase si tu en as)
+    } catch (e) {
+      console.warn("Logout warning:", e);
+    } finally {
+      try {
+        localStorage.removeItem("mockAuth");
+        localStorage.removeItem("username"); // si tu stockes le pseudo
+      } catch {}
+      // Notifie Room/Game de quitter la room + couper le socket + reset state
+      window.dispatchEvent(new CustomEvent("GLOBAL_LOGOUT"));
+      // Redirige vers la Home
+      nav("/", { replace: true });
+    }
+  }
+
   return (
     <nav>
       <header className="home__top">
@@ -32,7 +52,7 @@ function NavBar() {
                 <Link to="/lobby">Lobby</Link>
                 <Link to="/profil">Profil</Link>
               </nav>
-              <button onClick={logout}>Déconnexion</button>
+              <button onClick={handleLogout}>Déconnexion</button>
             </>
           ) : null}
         </div>
@@ -65,7 +85,7 @@ export default function App() {
           <Route path="/lobby" element={<Lobby />} />
           <Route path="/profil" element={<Protected><Profile /></Protected>} />
 
-          {/* ⬇️ RoomLayout fournit RoomProvider à Attente + Partie */}
+          {/* RoomLayout fournit RoomProvider à Attente + Partie */}
           <Route element={<RoomLayout />}>
             <Route path="/attente/:roomId" element={<WaitingRoom />} />
             <Route path="/partie/:roomId/*" element={<PuzzleLayout />}>
