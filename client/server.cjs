@@ -19,8 +19,7 @@ const io = new Server(httpServer, {
   },
 });
 
-// ⬇️⬇️⬇️ FONCTION FETCH POUR NODE.JS ⬇️⬇️⬇️
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+
 
 io.on("connection", (socket) => {
   console.log(`🔌 Nouvelle connexion: ${socket.id}`);

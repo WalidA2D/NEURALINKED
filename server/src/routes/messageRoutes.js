@@ -17,7 +17,7 @@ router.get('/:roomId', async (req, res) => {
         console.log(`🔍 GET MESSAGES: Requête pour room ${roomId}`);
 
         const { data, error } = await supabase
-            .from('Message')
+            .from('message')
             .select(`
         id,
         contenu,
@@ -95,7 +95,7 @@ router.post('/', async (req, res) => {
         console.log('💾 INSERTION MESSAGE:', messageData);
 
         const { data, error } = await supabase
-            .from('Message')
+            .from('message')
             .insert([messageData])
             .select(`
         id,
@@ -147,7 +147,7 @@ router.get('/debug/all', async (req, res) => {
         console.log('🔍 DEBUG ALL: Requête pour tous les messages');
 
         const { data, error } = await supabase
-            .from('Message')
+            .from('message')
             .select('*')
             .order('date_envoi', { ascending: false })
             .limit(50);
@@ -181,7 +181,7 @@ router.get('/debug/room/:roomId', async (req, res) => {
         console.log(`🔍 DEBUG ROOM: Requête messages pour room: ${roomId}`);
 
         const { data, error } = await supabase
-            .from('Message')
+            .from('message')
             .select('*')
             .eq('id_partie', roomId)
             .order('date_envoi', { ascending: true });
@@ -243,7 +243,7 @@ router.post('/debug/test', async (req, res) => {
         console.log('📝 DEBUG TEST: Données à insérer:', testMessage);
 
         const { data, error } = await supabase
-            .from('Message')
+            .from('message')
             .insert([testMessage])
             .select()
             .single();
@@ -280,7 +280,7 @@ router.get('/debug/stats', async (req, res) => {
 
         // Compter le total des messages
         const { count, error: countError } = await supabase
-            .from('Message')
+            .from('message')
             .select('*', { count: 'exact', head: true });
 
         if (countError) {
@@ -290,7 +290,7 @@ router.get('/debug/stats', async (req, res) => {
 
         // Messages par type
         const { data: byType, error: typeError } = await supabase
-            .from('Message')
+            .from('message')
             .select('type_message, count')
             .group('type_message');
 
@@ -301,7 +301,7 @@ router.get('/debug/stats', async (req, res) => {
 
         // Derniers messages
         const { data: recent, error: recentError } = await supabase
-            .from('Message')
+            .from('message')
             .select('*')
             .order('date_envoi', { ascending: false })
             .limit(5);
@@ -336,7 +336,7 @@ router.get('/debug/health', async (req, res) => {
         console.log('🏥 DEBUG HEALTH: Test connexion table Message');
 
         const { data, error } = await supabase
-            .from('Message')
+            .from('message')
             .select('id')
             .limit(1);
 
