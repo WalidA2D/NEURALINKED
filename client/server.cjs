@@ -1,4 +1,4 @@
-// NEURALINKED/client/server.cjs - VERSION AVEC CORS MULTI-MACHINES
+// NEURALINKED/client/server.cjs - Render-ready SANS Redis (single instance)
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
@@ -6,53 +6,64 @@ const { Server } = require("socket.io");
 const app = express();
 const httpServer = http.createServer(app);
 
+// --- CONFIG ---
+const API_BASE_URL = process.env.API_BASE_URL || "http://localhost:3001";
+const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
+  .split(",")
+  .map(s => s.trim())
+  .filter(Boolean);
+const FORCE_WEB_SOCKET = (process.env.FORCE_WS || "0") === "1"; // optionnel
+
+// --- STATE en mémoire (si pas de DB) ---
 const rooms = new Map();
 
 app.get("/health", (_req, res) => res.json({ ok: true, ws: true }));
 
-// 🔥 CORRECTION CORS : Accepter toutes les origines en développement
+// --- SOCKET.IO ---
 const io = new Server(httpServer, {
   path: "/socket.io",
   cors: {
-    origin: function (origin, callback) {
-      // Autoriser les requêtes sans origine (comme Postman, curl, etc.)
-      if (!origin) return callback(null, true);
+    origin(origin, cb) {
+      // Autoriser Postman/cURL (pas d'origin)
+      if (!origin) return cb(null, true);
 
-      // En développement : autoriser tout
-      // En production : remplacer par une liste d'origines autorisées
-      callback(null, true);
+      // En prod, on limite aux origines autorisées si définies
+      if (CORS_ORIGINS.length === 0 || CORS_ORIGINS.includes(origin)) {
+        return cb(null, true);
+      }
+      return cb(new Error(`Origin not allowed: ${origin}`), false);
     },
     methods: ["GET", "POST"],
     credentials: true,
     allowedHeaders: ["Content-Type"],
   },
-  // Options supplémentaires pour améliorer la connexion
-  transports: ["websocket", "polling"],
-  pingTimeout: 60000,
-  pingInterval: 25000,
+  transports: FORCE_WEB_SOCKET ? ["websocket"] : ["websocket", "polling"],
+  pingTimeout: 60_000,
+  pingInterval: 25_000,
 });
 
-// ⬇️⬇️⬇️ FONCTION FETCH POUR NODE.JS ⬇️⬇️⬇️
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+// ⬇️ Fetch dynamique (compat Node CJS)
+const fetch = (...args) => import("node-fetch").then(({ default: fetch }) => fetch(...args));
+
+function broadcastRoom(roomId) {
+  const room = rooms.get(roomId);
+  if (!room) return;
+  io.to(roomId).emit("room:update", {
+    code: roomId,
+    pwd: room.pwd,
+    players: room.players,
+    hostId: room.hostId,
+  });
+}
 
 io.on("connection", (socket) => {
-  console.log(`🔌 Nouvelle connexion: ${socket.id} depuis ${socket.handshake.address}`);
-
-  function broadcastRoom(roomId) {
-    const room = rooms.get(roomId);
-    if (!room) return;
-    io.to(roomId).emit("room:update", {
-      code: roomId,
-      pwd: room.pwd,
-      players: room.players,
-      hostId: room.hostId,
-    });
-  }
+  const ip = socket.handshake.headers["x-forwarded-for"] || socket.handshake.address;
+  console.log(`🔌 Nouvelle connexion: ${socket.id} depuis ${ip}`);
 
   socket.on("room:join", async ({ roomId, username, password, host }) => {
-    console.log(`🚪 room:join - ${username} rejoint ${roomId} (socket: ${socket.id})`);
-
     if (!roomId) return;
+    console.log(`🚪 room:join - ${username} rejoint ${roomId} (${socket.id})`);
+
     if (!rooms.has(roomId)) {
       rooms.set(roomId, { hostId: null, pwd: password || "", players: [] });
     }
@@ -70,18 +81,17 @@ io.on("connection", (socket) => {
   });
 
   socket.on("game:join", ({ roomId, username }) => {
-    console.log(`🎮 game:join - ${username} dans ${roomId} (socket: ${socket.id})`);
     if (!roomId) return;
+    console.log(`🎮 game:join - ${username} dans ${roomId} (${socket.id})`);
     socket.join(roomId);
   });
 
   socket.on("chat:load-history", async ({ roomId }) => {
+    if (!roomId) return;
     console.log(`📥 Demande historique pour: ${roomId} par ${socket.id}`);
 
-    if (!roomId) return;
-
     try {
-      const response = await fetch(`http://localhost:3001/api/messages/${roomId}`);
+      const response = await fetch(`${API_BASE_URL}/api/messages/${roomId}`);
       if (response.ok) {
         const history = await response.json();
         console.log(`✅ Envoi de ${history.length} messages à ${socket.id}`);
@@ -91,61 +101,67 @@ io.on("connection", (socket) => {
         socket.emit("chat:history", []);
       }
     } catch (error) {
-      console.error('❌ Erreur chargement historique:', error.message);
+      console.error("❌ Erreur chargement historique:", error.message);
       socket.emit("chat:history", []);
     }
   });
 
-  socket.on("chat:message", async (data) => {
-    const { roomId, user, text, ts } = data;
-
-    console.log(`💬 Message de ${user} (${socket.id}) dans ${roomId}: "${text?.substring(0, 50)}"`);
-
+  // --- chat:message avec ACK pour remplacer le message "temp" côté client ---
+  socket.on("chat:message", async (data, ack) => {
+    const { roomId, user, text, ts } = data || {};
     if (!roomId || !user || !text) {
-      console.error('❌ Données manquantes');
+      console.error("❌ Données manquantes pour chat:message");
       return;
     }
 
-    const message = {
+    console.log(`💬 Message de ${user} (${socket.id}) dans ${roomId}: "${String(text).slice(0, 50)}"`);
+
+    let message = {
       id: Date.now().toString(),
       user,
       text: text.toString().slice(0, 500),
       ts: ts || Date.now(),
     };
 
-    // Sauvegarder en DB
+    // Sauvegarde DB (optionnelle)
     try {
-      const dbResponse = await fetch('http://localhost:3001/api/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const dbResponse = await fetch(`${API_BASE_URL}/api/messages`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id_partie: roomId,
           contenu: text,
-          type_message: 'chat',
-          user: user
-        })
+          type_message: "chat",
+          user,
+        }),
       });
 
       if (dbResponse.ok) {
-        const savedMessage = await dbResponse.json();
-        console.log(`💾 Message sauvegardé: ID ${savedMessage.id}`);
-        message.id = savedMessage.id;
+        const saved = await dbResponse.json();
+        if (saved?.id) message.id = saved.id;
+        console.log(`💾 Message sauvegardé: ID ${message.id}`);
       } else {
         console.error(`❌ Erreur sauvegarde: ${dbResponse.status}`);
       }
     } catch (error) {
-      console.error('❌ Erreur API:', error.message);
+      console.error("❌ Erreur API:", error.message);
     }
 
-    // 🔥 DEBUG : Vérifier qui est dans la room
+    // DEBUG : qui est dans la room ?
     const roomSockets = io.sockets.adapter.rooms.get(roomId);
-    console.log(`📤 Diffusion à ${roomSockets?.size || 0} joueurs dans ${roomId}`);
-    if (roomSockets) {
-      console.log(`   Sockets dans la room: ${Array.from(roomSockets).join(', ')}`);
+    console.log(
+      `📤 Diffusion à ${roomSockets?.size || 0} socket(s) dans ${roomId}${
+        roomSockets ? " → " + Array.from(roomSockets).join(", ") : ""
+      }`
+    );
+
+    // 1) ACK vers l'émetteur pour swap le message temporaire
+    if (typeof ack === "function") {
+      try { ack(message); } catch {}
     }
 
-    // Diffuser à tous dans la room
-    io.to(roomId).emit("chat:message", message);
+    // 2) Diffusion à tous (émetteur inclus)
+    io.in(roomId).emit("chat:message", message);
   });
 
   socket.on("chat:typing", ({ roomId, user, isTyping }) => {
@@ -177,7 +193,6 @@ io.on("connection", (socket) => {
 
   socket.on("disconnect", () => {
     console.log(`🔌 Déconnexion: ${socket.id}`);
-
     for (const [roomId, room] of rooms) {
       const before = room.players.length;
       room.players = room.players.filter((p) => p.id !== socket.id);
@@ -197,8 +212,8 @@ io.on("connection", (socket) => {
 });
 
 const PORT = process.env.PORT || 4000;
-httpServer.listen(PORT, '0.0.0.0', () => {
+httpServer.listen(PORT, "0.0.0.0", () => {
   console.log(`\n🚀 HTTP+WebSocket démarré sur http://0.0.0.0:${PORT}`);
   console.log(`📡 Socket.io path: /socket.io`);
-  console.log(`🌐 Accessible depuis d'autres machines\n`);
+  console.log(`🌐 Accessible depuis d'autres machines (Render single instance)\n`);
 });
