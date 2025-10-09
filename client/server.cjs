@@ -1,4 +1,4 @@
-// server.cjs - VERSION COMPLÈTE CORRIGÉE
+// NEURALINKED/client/server.cjs - VERSION COMPLÈTE CORRIGÉE
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
