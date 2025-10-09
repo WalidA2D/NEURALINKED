@@ -53,15 +53,27 @@ io.on("connection", (socket) => {
     else already.name = name;
 
     socket.join(roomId);
+    broadcastRoom(roomId);
+  });
 
-    // Charger l'historique depuis l'API
+  // 🔥 MODIFIÉ : game:join ne charge plus l'historique
+  socket.on("game:join", ({ roomId, username }) => {
+    console.log(`🎮 game:join - ${username} dans ${roomId}`);
+    if (!roomId) return;
+    socket.join(roomId);
+  });
+
+  // 🔥 NOUVEAU : Endpoint dédié pour charger l'historique
+  socket.on("chat:load-history", async ({ roomId }) => {
+    console.log(`📥 Demande historique pour: ${roomId}`);
+
+    if (!roomId) return;
+
     try {
-      console.log(`📥 Chargement historique pour: ${roomId}`);
       const response = await fetch(`http://localhost:3001/api/messages/${roomId}`);
-
       if (response.ok) {
         const history = await response.json();
-        console.log(`✅ ${history.length} messages chargés`);
+        console.log(`✅ Envoi de ${history.length} messages à ${socket.id}`);
         socket.emit("chat:history", history);
       } else {
         console.error(`❌ API erreur ${response.status}`);
@@ -69,30 +81,6 @@ io.on("connection", (socket) => {
       }
     } catch (error) {
       console.error('❌ Erreur chargement historique:', error.message);
-      socket.emit("chat:history", []);
-    }
-
-    broadcastRoom(roomId);
-  });
-
-  socket.on("game:join", async ({ roomId, username }) => {
-    console.log(`🎮 game:join - ${username} dans ${roomId}`);
-
-    if (!roomId) return;
-    socket.join(roomId);
-
-    // Charger l'historique
-    try {
-      const response = await fetch(`http://localhost:3001/api/messages/${roomId}`);
-      if (response.ok) {
-        const history = await response.json();
-        console.log(`✅ Historique jeu: ${history.length} messages`);
-        socket.emit("chat:history", history);
-      } else {
-        socket.emit("chat:history", []);
-      }
-    } catch (error) {
-      console.error('❌ Erreur historique jeu:', error.message);
       socket.emit("chat:history", []);
     }
   });
@@ -189,7 +177,7 @@ io.on("connection", (socket) => {
       }
     }
   });
-});
+}); // ⬅️ FIN du io.on("connection") - TOUS les listeners doivent être AVANT
 
 const PORT = process.env.PORT || 4000;
 httpServer.listen(PORT, () => {

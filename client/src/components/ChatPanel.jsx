@@ -11,17 +11,11 @@ export default function ChatPanel() {
     // Debug : afficher les messages reçus
     useEffect(() => {
         console.log(`📨 [ChatPanel] ${messages.length} messages en mémoire:`, messages);
-
-        // 🔥 DEBUG : Vérifier la connexion WebSocket
-        console.log(`🔗 [ChatPanel] Statut connexion: ${connected ? '🟢 Connecté' : '🔴 Déconnecté'}`);
-    }, [messages, connected]);
+    }, [messages]);
 
     // Auto-scroll
     useEffect(() => {
-        if (listRef.current) {
-            listRef.current.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
-            console.log(`🔄 [ChatPanel] Auto-scroll effectué`);
-        }
+        listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: "smooth" });
     }, [messages]);
 
     function submit(e) {
@@ -59,7 +53,6 @@ export default function ChatPanel() {
                             <div className="bubble">{m.text}</div>
                             <small style={{ opacity: 0.5, fontSize: "0.7em" }}>
                                 {new Date(m.ts).toLocaleTimeString()}
-                                {m.temp && " (envoi...)"}
                             </small>
                         </div>
                     ))

@@ -17,7 +17,7 @@ export function GameProvider({ children, roomId, username }) {
         setPlayers(roomPlayers || []);
     }, [roomPlayers]);
 
-    // 🔥 CORRECTION : Configurer TOUS les listeners AVANT d'émettre game:join
+    // 🔥 CORRECTION : Configuration + demande d'historique
     useEffect(() => {
         if (!socket || !roomId) return;
 
@@ -38,30 +38,17 @@ export function GameProvider({ children, roomId, username }) {
             setMessages(history || []);
         };
 
-        // 🔥 CORRECTION COMPLÈTE : Handler pour les nouveaux messages
+        // Handler pour les nouveaux messages
         const onChatMessage = (msg) => {
             console.log("💬 [GameContext] chat:message reçu:", msg);
-
             setMessages((prevMessages) => {
-                // Éviter les doublons - méthode améliorée
-                const exists = prevMessages.some(m =>
-                    m.id === msg.id ||
-                    (m.temp && m.text === msg.text && m.user === msg.user) ||
-                    (m.ts === msg.ts && m.text === msg.text && m.user === msg.user)
-                );
-
+                // Éviter les doublons
+                const exists = prevMessages.some(m => m.id === msg.id || (m.ts === msg.ts && m.text === msg.text));
                 if (exists) {
                     console.log("⚠️ [GameContext] Message déjà présent, ignoré");
                     return prevMessages;
                 }
-
-                // 🔥 CORRECTION IMPORTANTE : Supprimer les messages temporaires correspondants
-                const filteredMessages = prevMessages.filter(m =>
-                    !(m.temp && m.text === msg.text && m.user === msg.user)
-                );
-
-                console.log(`✅ [GameContext] Ajout du message ${msg.id} à la liste`);
-                return [...filteredMessages, msg];
+                return [...prevMessages, msg];
             });
         };
 
@@ -71,21 +58,19 @@ export function GameProvider({ children, roomId, username }) {
             setTyping((t) => ({ ...t, [user]: isTyping }));
         };
 
-        // 🔥 DEBUG : Écouter tous les événements
-        const onAnyEvent = (eventName, ...args) => {
-            console.log(`🔍 [GameContext] Événement reçu: ${eventName}`, args);
-        };
-
-        // 🔥 IMPORTANT : Enregistrer les listeners AVANT d'émettre
+        // ✅ Enregistrer les listeners AVANT d'émettre
         socket.on("game:state", onGameState);
         socket.on("chat:history", onChatHistory);
         socket.on("chat:message", onChatMessage);
         socket.on("chat:typing", onTyping);
-        socket.onAny(onAnyEvent); // 🔥 DEBUG
 
-        // Maintenant on peut émettre game:join
+        // Émettre game:join
         console.log(`🚀 [GameContext] Émission game:join pour ${username} dans ${roomId}`);
         socket.emit("game:join", { roomId, username });
+
+        // 🔥 NOUVEAU : Demander explicitement l'historique après configuration
+        console.log(`📥 [GameContext] Demande explicite de l'historique`);
+        socket.emit("chat:load-history", { roomId });
 
         // Cleanup
         return () => {
@@ -94,7 +79,6 @@ export function GameProvider({ children, roomId, username }) {
             socket.off("chat:history", onChatHistory);
             socket.off("chat:message", onChatMessage);
             socket.off("chat:typing", onTyping);
-            socket.offAny(onAnyEvent); // 🔥 DEBUG
         };
     }, [socket, roomId, username]);
 
@@ -137,13 +121,13 @@ export function GameProvider({ children, roomId, username }) {
 
                 console.log("📤 [GameContext] Envoi du message:", payload);
 
-                // 🔥 CORRECTION : Ajout optimiste temporaire pour feedback immédiat
+                // Ajout optimiste temporaire pour feedback immédiat
                 const tempMessage = {
                     id: `temp-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
                     user: username,
                     text: text.trim(),
                     ts: Date.now(),
-                    temp: true // Marquer comme temporaire
+                    temp: true
                 };
 
                 console.log("📝 [GameContext] Ajout optimiste:", tempMessage);
