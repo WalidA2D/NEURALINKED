@@ -41,12 +41,9 @@ export default function Puzzle1() {
     e.preventDefault();
     const color = e.dataTransfer.getData("color");
     if (!color) return;
-
     const newColors = [...tubeColors, color];
-
     if (newColors.length <= 2) {
       setTubeColors(newColors);
-
       if (newColors.length === 2) {
         // Mélange automatique après 2 couleurs
         mixColors(newColors);
@@ -100,7 +97,7 @@ export default function Puzzle1() {
 
   // Vérification du drapeau
   function validateFlag() {
-    setAttempt(attempt + 1);
+    setAttempt((a) => a + 1);
     if (flag.join() === correctFlag.join()) {
       setSuccess(true);
       setMessage(
@@ -117,7 +114,7 @@ export default function Puzzle1() {
 
   function finish() {
     goToStep(1);
-    nav(`/room/${roomId}/puzzle2`, { replace: true });
+    nav(`/partie/${roomId}/enigme/2`, { replace: true }); // ✅ backticks + roomId
   }
 
   return (
@@ -141,15 +138,10 @@ export default function Puzzle1() {
       {/* Tube de mélange */}
       <div className="mix-tube" onDrop={dropInTube} onDragOver={allowDrop}>
         <p>🔬 Glisse ici deux couleurs pour les mélanger</p>
-
         <div className="tube">
           {tubeColors.length > 0 ? (
             tubeColors.map((c, i) => (
-              <div
-                key={i}
-                className="mini-color"
-                style={{ backgroundColor: c }}
-              ></div>
+              <div key={i} className="mini-color" style={{ backgroundColor: c }}></div>
             ))
           ) : mixedColor ? (
             <div

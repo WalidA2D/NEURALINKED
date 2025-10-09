@@ -1,10 +1,11 @@
 import { useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useGame } from "../../../context/GameContext.jsx";
 import "./Puzzle2.css";
 
 export default function Puzzle2() {
   const nav = useNavigate();
+  const { roomId } = useParams(); // ✅ nécessaire pour la navigation room
   const { goToStep } = useGame();
 
   // --- Les 8 flacons avec emojis et lettres du mot COMPLEXE ---
@@ -100,7 +101,7 @@ export default function Puzzle2() {
   }
 
   function passerEnigme() {
-    nav("/puzzle3", { replace: true });
+    nav(`/partie/${roomId}/enigme/3`, { replace: true }); // ✅ roomId présent
   }
 
   return (
@@ -180,9 +181,7 @@ export default function Puzzle2() {
                 {["Fleur", "Fruit", "Sel", "Poubelle", "Parfum"].map((f) => (
                   <button
                     key={f}
-                    className={`btn-odeur ${
-                      choixFinal === f ? "selected" : ""
-                    }`}
+                    className={`btn-odeur ${choixFinal === f ? "selected" : ""}`}
                     onClick={() => setChoixFinal(f)}
                   >
                     {f}

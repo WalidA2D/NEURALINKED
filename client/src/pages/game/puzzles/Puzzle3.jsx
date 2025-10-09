@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useGame } from "../../../context/GameContext.jsx";
 import "./Puzzle3.css";
 
 export default function Puzzle3() {
   const nav = useNavigate();
+  const { roomId } = useParams(); // ✅ nécessaire
   const { goToStep } = useGame();
 
   const fragments = [
@@ -76,14 +77,14 @@ export default function Puzzle3() {
       // Message + audio complet
       setMessage("🎉 Bravo ! Le chant complet joue maintenant !");
       goToStep(3);
-      audioComplet.current.play();
+      audioComplet.current?.play();
     } else {
       setMessage("❌ Mauvais ordre ! Essaie encore.");
     }
   }
 
   function passerEnigme() {
-    nav("/puzzle4", { replace: true });
+    nav(`/partie/${roomId}/enigme/4`, { replace: true }); // ✅ roomId présent
   }
 
   return (
