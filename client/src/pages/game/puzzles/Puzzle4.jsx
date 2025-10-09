@@ -6,16 +6,14 @@ import "./Puzzle4.css";
 export default function Puzzle4() {
   const nav = useNavigate();
   const { roomId } = useParams();
-  const { goToStep } = useGame();
+  const { solvePuzzle } = useGame();
 
-  // État des fragments (ville, parfum, chant)
   const [fragments, setFragments] = useState({
     ville: false,
     parfum: false,
     chant: false,
   });
 
-  // État de la question active
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [message, setMessage] = useState("");
 
@@ -37,7 +35,6 @@ export default function Puzzle4() {
     },
   };
 
-  // Quand l'utilisateur clique sur un fragment verrouillé
   function openQuestion(fragment) {
     if (!fragments[fragment]) {
       setActiveQuestion(fragment);
@@ -45,22 +42,27 @@ export default function Puzzle4() {
     }
   }
 
-  // Quand le joueur choisit une réponse
   function answerQuestion(choice) {
     const q = questions[activeQuestion];
     if (choice === q.answer) {
-      setFragments((prev) => ({ ...prev, [activeQuestion]: true }));
+      setFragments((prev) => {
+        const next = { ...prev, [activeQuestion]: true };
+        // Si tout est résolu -> propage à la room
+        if (Object.values(next).every(Boolean)) {
+          // 🔑 propage la réussite de l’énigme 4
+          solvePuzzle(4);
+        }
+        return next;
+      });
       setMessage("✅ Bonne réponse !");
     } else {
       setMessage("❌ Mauvaise réponse, essaie encore !");
     }
   }
 
-  // Vérifie si tout est résolu
   const allSolved = Object.values(fragments).every(Boolean);
 
   function finish() {
-    goToStep(4);
     nav("/lobby", { replace: true });
   }
 
@@ -109,12 +111,7 @@ export default function Puzzle4() {
             ))}
           </div>
           <p className="feedback">{message}</p>
-          <button
-            className="close"
-            onClick={() => setActiveQuestion(null)}
-          >
-            Fermer
-          </button>
+          <button className="close" onClick={() => setActiveQuestion(null)}>Fermer</button>
         </div>
       )}
 
@@ -126,16 +123,8 @@ export default function Puzzle4() {
             La Tour Eiffel brille à nouveau, l’air sent la <strong>menthe</strong>,
             et une douce chanson résonne : <em>"Sous le ciel de Paris..."</em>
           </p>
-          <video
-            src="/sounds/chant.mp4"
-            controls
-            autoPlay
-            className="final-video"
-          />
-
-          <button className="btn" onClick={finish}>
-            Terminer la partie
-          </button>
+          <video src="/sounds/chant.mp4" controls autoPlay className="final-video" />
+          <button className="btn" onClick={finish}>Terminer la partie</button>
         </div>
       )}
     </section>

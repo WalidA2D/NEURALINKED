@@ -1,3 +1,4 @@
+// client/src/context/GameContext.jsx
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useRoom } from "../context/RoomContext.jsx";
 
@@ -5,19 +6,17 @@ const GameCtx = createContext(null);
 export const useGame = () => useContext(GameCtx);
 
 export function GameProvider({ children, roomId, username }) {
-  const { socket, connected, code, players: roomPlayers } = useRoom(); // réutilise la socket
+  const { socket, connected, code, players: roomPlayers } = useRoom();
   const [players, setPlayers] = useState(roomPlayers || []);
   const [messages, setMessages] = useState([]);
   const [typing, setTyping] = useState({});
   const [step, setStep] = useState(1);
   const [endsAt, setEndsAt] = useState(null);
 
-  // sync joueurs depuis le RoomContext
   useEffect(() => {
     setPlayers(roomPlayers || []);
   }, [roomPlayers]);
 
-  // s’abonner aux évènements de jeu sur la socket existante
   useEffect(() => {
     if (!socket) return;
 
@@ -27,26 +26,34 @@ export function GameProvider({ children, roomId, username }) {
       if (state.endsAt) setEndsAt(state.endsAt);
       if (Array.isArray(state.messages)) setMessages(state.messages);
     };
+    const onGameStep = ({ step }) => setStep(step);
+    const onPuzzleSolved = ({ puzzle, by }) => {
+      // Optionnel: afficher un toast/console
+      // console.log(`Énigme ${puzzle} validée par ${by}`);
+    };
+
     const onChatMsg = (msg) => setMessages((m) => [...m, msg]);
     const onTyping = ({ user, isTyping }) =>
       setTyping((t) => ({ ...t, [user]: isTyping }));
 
     socket.on("game:state", onGameState);
+    socket.on("game:step", onGameStep);
+    socket.on("game:puzzle-solved", onPuzzleSolved);
     socket.on("chat:message", onChatMsg);
     socket.on("chat:typing", onTyping);
 
-    // joindre le canal de jeu (si tu en as un distinct)
     socket.emit("game:join", { roomId, username });
 
     return () => {
       socket.off("game:state", onGameState);
+      socket.off("game:step", onGameStep);
+      socket.off("game:puzzle-solved", onPuzzleSolved);
       socket.off("chat:message", onChatMsg);
       socket.off("chat:typing", onTyping);
-      // ne pas disconnect ici — RoomProvider gère la vie de la socket
     };
   }, [socket, roomId, username]);
 
-  // Timer 15 min (si pas géré serveur)
+  // Timer 15 min (poussé une seule fois s'il n'existe pas encore)
   useEffect(() => {
     if (!endsAt && socket && connected) {
       const target = Date.now() + 15 * 60 * 1000;
@@ -55,7 +62,6 @@ export function GameProvider({ children, roomId, username }) {
     }
   }, [endsAt, socket, connected, roomId]);
 
-  // <= IMPORTANT: quand endsAt n'est pas encore défini, on renvoie null (pas 0)
   const timeLeftMs = endsAt == null ? null : Math.max(0, endsAt - Date.now());
   const timeLeft = useMemo(() => {
     if (timeLeftMs == null) return "--:--";
@@ -81,8 +87,12 @@ export function GameProvider({ children, roomId, username }) {
         socket?.emit("chat:typing", { roomId, user: username, isTyping }),
       step,
       goToStep: (next) => {
-        setStep(next);
+        setStep(next); // optimiste
         socket?.emit("game:step", { roomId, step: next });
+      },
+      // 🔑 A appeler quand une énigme est validée (puzzleNum = 1..4)
+      solvePuzzle: (puzzleNum) => {
+        socket?.emit("puzzle:solved", { roomId, puzzle: Number(puzzleNum), by: username });
       },
       endsAt,
       timeLeftMs,

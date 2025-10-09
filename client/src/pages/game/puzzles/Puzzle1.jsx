@@ -1,12 +1,11 @@
 import React, { useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { useGame } from "../../../context/GameContext.jsx";
 import "./Puzzle1.css";
 
 export default function Puzzle1() {
-  const nav = useNavigate();
   const { roomId } = useParams();
-  const { goToStep } = useGame();
+  const { solvePuzzle } = useGame();
 
   const [message, setMessage] = useState(
     "🧠 Un souvenir d’Europe refait surface... Glisse deux couleurs dans le tube pour reconstituer le drapeau oublié."
@@ -31,12 +30,8 @@ export default function Puzzle1() {
   function onDragStart(e, color) {
     e.dataTransfer.setData("color", color);
   }
+  function allowDrop(e) { e.preventDefault(); }
 
-  function allowDrop(e) {
-    e.preventDefault();
-  }
-
-  // Déposer une couleur dans le tube
   function dropInTube(e) {
     e.preventDefault();
     const color = e.dataTransfer.getData("color");
@@ -45,7 +40,6 @@ export default function Puzzle1() {
     if (newColors.length <= 2) {
       setTubeColors(newColors);
       if (newColors.length === 2) {
-        // Mélange automatique après 2 couleurs
         mixColors(newColors);
       } else {
         setMessage("🧪 Choisis une autre couleur pour compléter ton mélange...");
@@ -53,39 +47,29 @@ export default function Puzzle1() {
     }
   }
 
-  // Mélange automatique
   function mixColors(pair) {
     const [c1, c2] = pair;
     let result = "#999";
 
-    // Bleu foncé
     if (
       (c1 === "#6EC1E4" && c2 === "#DADADA") ||
       (c2 === "#6EC1E4" && c1 === "#DADADA")
-    )
-      result = "#0047AB";
-    // Blanc
+    ) result = "#0047AB";
     else if (
       (c1 === "#F9E55B" && c2 === "#DADADA") ||
       (c2 === "#F9E55B" && c1 === "#DADADA")
-    )
-      result = "#FFFFFF";
-    // Rouge vif
+    ) result = "#FFFFFF";
     else if (
       (c1 === "#F9E55B" && c2 === "#F27C7C") ||
       (c2 === "#F9E55B" && c1 === "#F27C7C")
-    )
-      result = "#D90429";
+    ) result = "#D90429";
     else result = "#BBBBBB";
 
     setMixedColor(result);
     setTubeColors([]);
-    setMessage(
-      "🧠 Une nouvelle teinte de souvenir apparaît... glisse-la vers le drapeau !"
-    );
+    setMessage("🧠 Une nouvelle teinte de souvenir apparaît... glisse-la vers le drapeau !");
   }
 
-  // Déposer une couleur sur le drapeau
   function dropOnFlag(e, index) {
     e.preventDefault();
     const color = e.dataTransfer.getData("color");
@@ -95,14 +79,13 @@ export default function Puzzle1() {
     setFlag(newFlag);
   }
 
-  // Vérification du drapeau
   function validateFlag() {
     setAttempt((a) => a + 1);
     if (flag.join() === correctFlag.join()) {
       setSuccess(true);
-      setMessage(
-        "✨ Les souvenirs se stabilisent... Un symbole d’unité européenne renaît dans ta mémoire."
-      );
+      setMessage("✨ Les souvenirs se stabilisent... Un symbole d’unité européenne renaît dans ta mémoire.");
+      // 🔑 propage à TOUTE la room
+      solvePuzzle(1);
     } else {
       let hint = "❌ Ce n’est pas encore ça... ";
       if (attempt === 0) hint += "Ces couleurs évoquent un pays au cœur de l’Europe.";
@@ -112,17 +95,11 @@ export default function Puzzle1() {
     }
   }
 
-  function finish() {
-    goToStep(1);
-    nav(`/partie/${roomId}/enigme/2`, { replace: true }); // ✅ backticks + roomId
-  }
-
   return (
     <section className="puzzle">
       <h2>Énigme 1 — Les Couleurs de la Mémoire</h2>
       <p className="message">{message}</p>
 
-      {/* Palette de base */}
       <div className="color-palette">
         {baseColors.map((c, i) => (
           <div
@@ -135,7 +112,6 @@ export default function Puzzle1() {
         ))}
       </div>
 
-      {/* Tube de mélange */}
       <div className="mix-tube" onDrop={dropInTube} onDragOver={allowDrop}>
         <p>🔬 Glisse ici deux couleurs pour les mélanger</p>
         <div className="tube">
@@ -154,7 +130,6 @@ export default function Puzzle1() {
         </div>
       </div>
 
-      {/* Drapeau */}
       <div className="flag">
         {flag.map((c, i) => (
           <div
@@ -174,9 +149,7 @@ export default function Puzzle1() {
       </button>
 
       {success && (
-        <button className="btn-finish" onClick={finish}>
-          Continuer →
-        </button>
+        <p className="hint">En attente des autres… la suite arrive automatiquement.</p>
       )}
     </section>
   );

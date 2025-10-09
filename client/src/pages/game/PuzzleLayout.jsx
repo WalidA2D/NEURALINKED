@@ -1,3 +1,4 @@
+// client/src/layouts/puzzles/PuzzleLayout.jsx
 import { Outlet, useNavigate, useParams } from "react-router-dom";
 import { GameProvider, useGame } from "../../context/GameContext.jsx";
 import ChatPanel from "../../components/ChatPanel.jsx";
@@ -8,7 +9,7 @@ function Shell() {
   const nav = useNavigate();
   const { roomId } = useParams();
 
-  // Ne redirige vers le lobby que si le timer existe ET est terminé
+  // Redirection vers lobby uniquement si le timer existe ET est terminé
   useEffect(() => {
     if (endsAt == null) return;
     if (timeLeftMs === 0) nav("/lobby", { replace: true });
@@ -20,6 +21,12 @@ function Shell() {
     const routeNum = m ? Number(m[1]) : 1;
     if (routeNum !== step) goToStep(routeNum);
   }, [step, goToStep]);
+
+  // 🔁 Synchroniser la route quand step change (événements socket inclus)
+  useEffect(() => {
+    if (!roomId || !step) return;
+    nav(`/partie/${roomId}/enigme/${step}`, { replace: true });
+  }, [roomId, step, nav]);
 
   return (
     <div className="game full-bleed">
@@ -42,7 +49,7 @@ function Shell() {
               type="button"
               onClick={() => {
                 goToStep(n);
-                nav(`/partie/${roomId}/enigme/${n}`);
+                // la nav sera faite par l’effet ci-dessus
               }}
             >
               Énigme {n}
@@ -60,7 +67,6 @@ function Shell() {
   );
 }
 
-// Enveloppe la route avec GameProvider (roomId/username issus de params ou storage)
 export default function PuzzleLayout() {
   const { roomId } = useParams();
   const username = localStorage.getItem("username") || "Joueur";
