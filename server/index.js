@@ -4,10 +4,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 
 import authRoutes from './src/routes/authRoutes.js';
+import roomRoutes from "./src/routes/roomRoutes.js";
 import { query } from './src/config/database.js';
 import { supabase } from './src/config/supabase.js';
-// room route
-import roomRoutes from "./src/routes/roomRoutes.js";
 
 dotenv.config();
 
@@ -20,8 +19,6 @@ app.use((req, _res, next) => {
   console.log('➡️', req.method, req.originalUrl);
   next();
 });
-
-
 
 // Health API
 app.get('/api/health', (_req, res) => {
@@ -43,19 +40,13 @@ app.get('/api/health/db', async (_req, res) => {
   }
 });
 
-
-
-
-
-// Routes des parties
-app.use("/api/rooms", roomRoutes);
-
+// Health Supabase
 app.get('/api/health/supabase', async (_req, res) => {
   try {
     const { data, error } = await supabase
-      .from('utilisateur') // respecte bien la casse de ta table
-      .select('id')
-      .limit(1);
+        .from('utilisateur')
+        .select('id')
+        .limit(1);
     if (error) throw error;
     res.json({ ok: true, rows: data?.length ?? 0 });
   } catch (e) {
@@ -64,13 +55,15 @@ app.get('/api/health/supabase', async (_req, res) => {
   }
 });
 
-// === Tes routes d'auth ===
+// Routes d'authentification
 app.use('/api/auth', authRoutes);
 
 app.post('/api/auth/register', (req, res) => {
   return res.json({ ok: true, echo: req.body || null, from: 'inline route' });
 });
 
+// Routes des parties
+app.use("/api/rooms", roomRoutes);
 
 // GET /api/users?pseudo=...&email=...
 app.get('/api/users', async (req, res) => {
@@ -89,7 +82,7 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
-// 404 (Express 5 : pas de '*')
+// 404 (DOIT ÊTRE LA DERNIÈRE ROUTE)
 app.use((req, res) => {
   res.status(404).json({ success: false, message: 'Route non trouvée' });
 });

@@ -1,26 +1,25 @@
-import { db } from '../config/database.js';
+import { supabase } from '../config/supabase.js';
 import { generateRoomCode } from '../utils/room.js';
 
 // Créer une nouvelle partie
 export const createRoom = async (req, res) => {
     try {
-        const { userId } = req; // Récupéré du middleware d'authentification
+        const { userId } = req;
         const { password } = req.body;
 
         // Vérifier que l'utilisateur existe
-        const [users] = await db.execute(
-            'SELECT id, pseudo FROM Utilisateur WHERE id = ?',
-            [userId]
-        );
+        const { data: users, error: userErr } = await supabase
+            .from('utilisateur')
+            .select('id, pseudo')
+            .eq('id', userId)
+            .single();
 
-        if (users.length === 0) {
+        if (userErr || !users) {
             return res.status(404).json({
                 success: false,
                 message: 'Utilisateur non trouvé'
             });
         }
-
-        const user = users[0];
 
         // Générer un code unique
         let code;
@@ -29,11 +28,14 @@ export const createRoom = async (req, res) => {
 
         while (!isUnique && attempts < 10) {
             code = generateRoomCode();
-            const [existing] = await db.execute(
-                'SELECT id FROM Partie WHERE code = ?',
-                [code]
-            );
-            if (existing.length === 0) {
+            const { data: existing, error: codeErr } = await supabase
+                .from('partie')
+                .select('id')
+                .eq('code', code)
+                .limit(1);
+
+            if (codeErr) throw codeErr;
+            if (!existing || existing.length === 0) {
                 isUnique = true;
             }
             attempts++;
@@ -47,37 +49,46 @@ export const createRoom = async (req, res) => {
         }
 
         // Créer la partie
-        const [result] = await db.execute(
-            'INSERT INTO Partie (code, statut, date_creation) VALUES (?, "waiting", NOW())',
-            [code]
-        );
+        const { data: newPartie, error: partieErr } = await supabase
+            .from('partie')
+            .insert([{
+                code: code,
+                statut: 'waiting',
+                date_creation: new Date().toISOString()
+            }])
+            .select('id, code, statut, date_creation')
+            .single();
 
-        const partieId = result.insertId;
+        if (partieErr) throw partieErr;
 
         // Ajouter l'utilisateur comme hôte
-        await db.execute(
-            'INSERT INTO JoueurPartie (id_partie, id_utilisateur, role, est_connecte) VALUES (?, ?, "host", TRUE)',
-            [partieId, userId]
-        );
+        const { error: jpErr } = await supabase
+            .from('joueur_partie')
+            .insert([{
+                id_partie: newPartie.id,
+                id_utilisateur: userId,
+                role: 'host',
+                est_connecte: true
+            }]);
+
+        if (jpErr) throw jpErr;
 
         res.status(201).json({
             success: true,
             message: 'Partie créée avec succès',
             data: {
-                roomId: partieId,
-                code: code,
+                roomId: newPartie.id,
+                code: newPartie.code,
                 host: {
-                    id: user.id,
-                    pseudo: user.pseudo
+                    id: users.id,
+                    pseudo: users.pseudo
                 },
-                players: [
-                    {
-                        id: user.id,
-                        pseudo: user.pseudo,
-                        role: 'host',
-                        isConnected: true
-                    }
-                ],
+                players: [{
+                    id: users.id,
+                    pseudo: users.pseudo,
+                    role: 'host',
+                    isConnected: true
+                }],
                 status: 'waiting',
                 password: password || null
             }
@@ -106,41 +117,44 @@ export const joinRoom = async (req, res) => {
         }
 
         // Vérifier que l'utilisateur existe
-        const [users] = await db.execute(
-            'SELECT id, pseudo FROM Utilisateur WHERE id = ?',
-            [userId]
-        );
+        const { data: users, error: userErr } = await supabase
+            .from('utilisateur')
+            .select('id, pseudo')
+            .eq('id', userId)
+            .single();
 
-        if (users.length === 0) {
+        if (userErr || !users) {
             return res.status(404).json({
                 success: false,
                 message: 'Utilisateur non trouvé'
             });
         }
 
-        const user = users[0];
+        // Vérifier que la partie existe et compter les joueurs
+        const { data: partie, error: partieErr } = await supabase
+            .from('partie')
+            .select('id, code, statut, date_creation')
+            .eq('code', code.toUpperCase())
+            .eq('statut', 'waiting')
+            .single();
 
-        // Vérifier que la partie existe
-        const [parties] = await db.execute(
-            `SELECT p.*, COUNT(jp.id) as nb_joueurs 
-       FROM Partie p 
-       LEFT JOIN JoueurPartie jp ON p.id = jp.id_partie 
-       WHERE p.code = ? AND p.statut = "waiting"
-       GROUP BY p.id`,
-            [code.toUpperCase()]
-        );
-
-        if (parties.length === 0) {
+        if (partieErr || !partie) {
             return res.status(404).json({
                 success: false,
                 message: 'Partie non trouvée ou déjà commencée'
             });
         }
 
-        const partie = parties[0];
+        // Compter le nombre de joueurs
+        const { count: nbJoueurs, error: countErr } = await supabase
+            .from('joueur_partie')
+            .select('*', { count: 'exact', head: true })
+            .eq('id_partie', partie.id);
+
+        if (countErr) throw countErr;
 
         // Vérifier le nombre de joueurs (max 5)
-        if (partie.nb_joueurs >= 5) {
+        if (nbJoueurs >= 5) {
             return res.status(400).json({
                 success: false,
                 message: 'La partie est pleine (5 joueurs maximum)'
@@ -148,12 +162,16 @@ export const joinRoom = async (req, res) => {
         }
 
         // Vérifier si l'utilisateur est déjà dans la partie
-        const [existingPlayer] = await db.execute(
-            'SELECT id FROM JoueurPartie WHERE id_partie = ? AND id_utilisateur = ?',
-            [partie.id, userId]
-        );
+        const { data: existingPlayer, error: existErr } = await supabase
+            .from('joueur_partie')
+            .select('id')
+            .eq('id_partie', partie.id)
+            .eq('id_utilisateur', userId)
+            .limit(1);
 
-        if (existingPlayer.length > 0) {
+        if (existErr) throw existErr;
+
+        if (existingPlayer && existingPlayer.length > 0) {
             return res.status(400).json({
                 success: false,
                 message: 'Vous êtes déjà dans cette partie'
@@ -161,30 +179,42 @@ export const joinRoom = async (req, res) => {
         }
 
         // Ajouter le joueur à la partie
-        await db.execute(
-            'INSERT INTO JoueurPartie (id_partie, id_utilisateur, role, est_connecte) VALUES (?, ?, "player", TRUE)',
-            [partie.id, userId]
-        );
+        const { error: insertErr } = await supabase
+            .from('joueur_partie')
+            .insert([{
+                id_partie: partie.id,
+                id_utilisateur: userId,
+                role: 'player',
+                est_connecte: true
+            }]);
+
+        if (insertErr) throw insertErr;
 
         // Récupérer la liste des joueurs
-        const [players] = await db.execute(
-            `SELECT u.id, u.pseudo, jp.role, jp.est_connecte 
-       FROM JoueurPartie jp 
-       JOIN Utilisateur u ON jp.id_utilisateur = u.id 
-       WHERE jp.id_partie = ?`,
-            [partie.id]
-        );
+        const { data: players, error: playersErr } = await supabase
+            .from('joueur_partie')
+            .select(`
+        role,
+        est_connecte,
+        utilisateur:id_utilisateur (
+          id,
+          pseudo
+        )
+      `)
+            .eq('id_partie', partie.id);
+
+        if (playersErr) throw playersErr;
+
+        // Formater les joueurs
+        const formattedPlayers = players.map(p => ({
+            id: p.utilisateur.id,
+            pseudo: p.utilisateur.pseudo,
+            role: p.role,
+            est_connecte: p.est_connecte
+        }));
 
         // Récupérer l'hôte
-        const [hosts] = await db.execute(
-            `SELECT u.id, u.pseudo 
-       FROM JoueurPartie jp 
-       JOIN Utilisateur u ON jp.id_utilisateur = u.id 
-       WHERE jp.id_partie = ? AND jp.role = "host"`,
-            [partie.id]
-        );
-
-        const host = hosts[0];
+        const host = formattedPlayers.find(p => p.role === 'host');
 
         res.json({
             success: true,
@@ -193,9 +223,9 @@ export const joinRoom = async (req, res) => {
                 roomId: partie.id,
                 code: partie.code,
                 host: host,
-                players: players,
+                players: formattedPlayers,
                 status: partie.statut,
-                currentPlayers: players.length,
+                currentPlayers: formattedPlayers.length,
                 maxPlayers: 5
             }
         });
@@ -210,7 +240,6 @@ export const joinRoom = async (req, res) => {
 };
 
 // Démarrer une partie
-// Démarrer une partie - VERSION CORRIGÉE
 export const startRoom = async (req, res) => {
     try {
         const { userId } = req;
@@ -219,44 +248,46 @@ export const startRoom = async (req, res) => {
         console.log(`🔄 Tentative de démarrage de la partie ${roomId} par l'utilisateur ${userId}`);
 
         // Vérifier que l'utilisateur est l'hôte de la partie
-        const [hostCheck] = await db.execute(
-            `SELECT jp.role, p.statut
-             FROM JoueurPartie jp
-                      JOIN Partie p ON jp.id_partie = p.id
-             WHERE jp.id_partie = ? AND jp.id_utilisateur = ?`,
-            [roomId, userId]
-        );
+        const { data: hostCheck, error: hostErr } = await supabase
+            .from('joueur_partie')
+            .select(`
+        role,
+        partie:id_partie (
+          statut
+        )
+      `)
+            .eq('id_partie', roomId)
+            .eq('id_utilisateur', userId)
+            .single();
 
-        if (hostCheck.length === 0) {
+        if (hostErr || !hostCheck) {
             return res.status(404).json({
                 success: false,
                 message: 'Partie non trouvée'
             });
         }
 
-        const check = hostCheck[0];
-
-        if (check.role !== 'host') {
+        if (hostCheck.role !== 'host') {
             return res.status(403).json({
                 success: false,
                 message: 'Seul l\'hôte peut démarrer la partie'
             });
         }
 
-        if (check.statut !== 'waiting') {
+        if (hostCheck.partie.statut !== 'waiting') {
             return res.status(400).json({
                 success: false,
                 message: 'La partie a déjà commencé'
             });
         }
 
-        // ✅ CORRECTION : Compter correctement le nombre de joueurs
-        const [playersCount] = await db.execute(
-            'SELECT COUNT(*) as count FROM JoueurPartie WHERE id_partie = ?',
-            [roomId]
-        );
+        // Compter le nombre de joueurs
+        const { count: nbJoueurs, error: countErr } = await supabase
+            .from('joueur_partie')
+            .select('*', { count: 'exact', head: true })
+            .eq('id_partie', roomId);
 
-        const nbJoueurs = playersCount[0].count;
+        if (countErr) throw countErr;
 
         console.log(`👥 Nombre de joueurs dans la partie: ${nbJoueurs}`);
 
@@ -276,16 +307,39 @@ export const startRoom = async (req, res) => {
         }
 
         // Mettre à jour le statut de la partie
-        await db.execute(
-            'UPDATE Partie SET statut = "playing", date_debut = NOW() WHERE id = ?',
-            [roomId]
-        );
+        const { error: updateErr } = await supabase
+            .from('partie')
+            .update({
+                statut: 'playing',
+                date_debut: new Date().toISOString()
+            })
+            .eq('id', roomId);
 
-        // Initialiser la progression pour la première énigme
-        await db.execute(
-            'INSERT INTO Progression (id_partie, id_enigme, resolue, tentatives) VALUES (?, 1, FALSE, 0)',
-            [roomId]
-        );
+        if (updateErr) throw updateErr;
+
+        console.log(`✅ Statut de la partie ${roomId} mis à jour vers 'playing'`);
+
+        // ESSAYER d'initialiser la progression, mais ne pas bloquer si ça échoue
+        try {
+            const { error: progErr } = await supabase
+                .from('progression')
+                .insert([{
+                    id_partie: roomId,
+                    id_enigme: 1,
+                    resolue: false,
+                    tentatives: 0
+                }]);
+
+            if (progErr) {
+                console.warn('⚠️ Impossible de créer la progression, mais la partie continue:', progErr);
+                // On continue même si la progression échoue
+            } else {
+                console.log('✅ Progression initialisée pour la partie', roomId);
+            }
+        } catch (progError) {
+            console.warn('⚠️ Erreur lors de la création de la progression:', progError);
+            // On continue quand même
+        }
 
         console.log(`✅ Partie ${roomId} démarrée avec succès avec ${nbJoueurs} joueurs`);
 
@@ -314,43 +368,45 @@ export const getRoom = async (req, res) => {
     try {
         const { code } = req.params;
 
-        const [parties] = await db.execute(
-            `SELECT p.*, COUNT(jp.id) as nb_joueurs 
-       FROM Partie p 
-       LEFT JOIN JoueurPartie jp ON p.id = jp.id_partie 
-       WHERE p.code = ?
-       GROUP BY p.id`,
-            [code.toUpperCase()]
-        );
+        // Récupérer la partie
+        const { data: partie, error: partieErr } = await supabase
+            .from('partie')
+            .select('id, code, statut, date_creation, date_debut')
+            .eq('code', code.toUpperCase())
+            .single();
 
-        if (parties.length === 0) {
+        if (partieErr || !partie) {
             return res.status(404).json({
                 success: false,
                 message: 'Partie non trouvée'
             });
         }
 
-        const partie = parties[0];
-
         // Récupérer les joueurs
-        const [players] = await db.execute(
-            `SELECT u.id, u.pseudo, jp.role, jp.est_connecte 
-       FROM JoueurPartie jp 
-       JOIN Utilisateur u ON jp.id_utilisateur = u.id 
-       WHERE jp.id_partie = ?`,
-            [partie.id]
-        );
+        const { data: players, error: playersErr } = await supabase
+            .from('joueur_partie')
+            .select(`
+        role,
+        est_connecte,
+        utilisateur:id_utilisateur (
+          id,
+          pseudo
+        )
+      `)
+            .eq('id_partie', partie.id);
+
+        if (playersErr) throw playersErr;
+
+        // Formater les joueurs
+        const formattedPlayers = players.map(p => ({
+            id: p.utilisateur.id,
+            pseudo: p.utilisateur.pseudo,
+            role: p.role,
+            est_connecte: p.est_connecte
+        }));
 
         // Récupérer l'hôte
-        const [hosts] = await db.execute(
-            `SELECT u.id, u.pseudo 
-       FROM JoueurPartie jp 
-       JOIN Utilisateur u ON jp.id_utilisateur = u.id 
-       WHERE jp.id_partie = ? AND jp.role = "host"`,
-            [partie.id]
-        );
-
-        const host = hosts[0];
+        const host = formattedPlayers.find(p => p.role === 'host');
 
         res.json({
             success: true,
@@ -359,8 +415,8 @@ export const getRoom = async (req, res) => {
                 code: partie.code,
                 status: partie.statut,
                 host: host,
-                players: players,
-                currentPlayers: players.length,
+                players: formattedPlayers,
+                currentPlayers: formattedPlayers.length,
                 maxPlayers: 5,
                 dateCreation: partie.date_creation,
                 dateDebut: partie.date_debut
@@ -383,51 +439,65 @@ export const leaveRoom = async (req, res) => {
         const { roomId } = req.params;
 
         // Vérifier si l'utilisateur est dans la partie
-        const [playerCheck] = await db.execute(
-            'SELECT role FROM JoueurPartie WHERE id_partie = ? AND id_utilisateur = ?',
-            [roomId, userId]
-        );
+        const { data: playerCheck, error: checkErr } = await supabase
+            .from('joueur_partie')
+            .select('role')
+            .eq('id_partie', roomId)
+            .eq('id_utilisateur', userId)
+            .single();
 
-        if (playerCheck.length === 0) {
+        if (checkErr || !playerCheck) {
             return res.status(404).json({
                 success: false,
                 message: 'Vous n\'êtes pas dans cette partie'
             });
         }
 
-        const player = playerCheck[0];
-
         // Si c'est l'hôte, transférer l'hôte à un autre joueur ou supprimer la partie
-        if (player.role === 'host') {
+        if (playerCheck.role === 'host') {
             // Chercher un autre joueur pour devenir hôte
-            const [otherPlayers] = await db.execute(
-                'SELECT id_utilisateur FROM JoueurPartie WHERE id_partie = ? AND id_utilisateur != ? LIMIT 1',
-                [roomId, userId]
-            );
+            const { data: otherPlayers, error: otherErr } = await supabase
+                .from('joueur_partie')
+                .select('id_utilisateur')
+                .eq('id_partie', roomId)
+                .neq('id_utilisateur', userId)
+                .limit(1);
 
-            if (otherPlayers.length > 0) {
+            if (otherErr) throw otherErr;
+
+            if (otherPlayers && otherPlayers.length > 0) {
                 // Transférer l'hôte
-                await db.execute(
-                    'UPDATE JoueurPartie SET role = "host" WHERE id_partie = ? AND id_utilisateur = ?',
-                    [roomId, otherPlayers[0].id_utilisateur]
-                );
+                const { error: transferErr } = await supabase
+                    .from('joueur_partie')
+                    .update({ role: 'host' })
+                    .eq('id_partie', roomId)
+                    .eq('id_utilisateur', otherPlayers[0].id_utilisateur);
+
+                if (transferErr) throw transferErr;
             } else {
                 // Supprimer la partie si c'est le dernier joueur
-                await db.execute('DELETE FROM Partie WHERE id = ?', [roomId]);
+                const { error: deleteErr } = await supabase
+                    .from('partie')
+                    .delete()
+                    .eq('id', roomId);
 
-                res.json({
+                if (deleteErr) throw deleteErr;
+
+                return res.json({
                     success: true,
                     message: 'Partie supprimée (dernier joueur)'
                 });
-                return;
             }
         }
 
         // Retirer le joueur de la partie
-        await db.execute(
-            'DELETE FROM JoueurPartie WHERE id_partie = ? AND id_utilisateur = ?',
-            [roomId, userId]
-        );
+        const { error: removeErr } = await supabase
+            .from('joueur_partie')
+            .delete()
+            .eq('id_partie', roomId)
+            .eq('id_utilisateur', userId);
+
+        if (removeErr) throw removeErr;
 
         res.json({
             success: true,
