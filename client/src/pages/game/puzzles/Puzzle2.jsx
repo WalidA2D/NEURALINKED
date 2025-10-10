@@ -59,7 +59,7 @@ export default function Puzzle2() {
 
   function validerMot() {
     const cleaned = mot.trim().toUpperCase();
-    if (cleaned === "COMPLEXE") {
+    if (cleaned === "Grasse") {
       setMotValide(true);
       setMessage(
         "Grasse est une ville connu pour une particularité :"
